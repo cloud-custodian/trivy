@@ -1797,3 +1797,42 @@ resource "test" "values" {
 	require.NotNil(t, bad_attr_2)
 	assert.Nil(t, bad_attr_2.GetRawValue())
 }
+
+func Test_AWSRegionNameDefined(t *testing.T) {
+
+	fs := testutil.CreateFS(t, map[string]string{
+		"code/test.tf": `
+data "aws_region" "current" {}
+
+data "aws_region" "other" {
+  name = "us-east-2"
+}
+
+resource "something" "blah" {
+  r1 = data.aws_region.current.name
+  r2 = data.aws_region.other.name
+}
+`,
+	})
+
+	parser := New(fs, "", OptionStopOnHCLError(true))
+	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
+	modules, _, err := parser.EvaluateAll(context.TODO())
+	assert.NoError(t, err)
+	require.Len(t, modules, 1)
+	rootModule := modules[0]
+
+	blocks := rootModule.GetResourcesByType("something")
+	require.Len(t, blocks, 1)
+	block := blocks[0]
+
+	r1 := block.GetAttribute("r1")
+	require.NotNil(t, r1)
+	assert.Equal(t, true, r1.IsResolvable())
+	assert.Equal(t, r1.Value().AsString(), "current-region")
+
+	r2 := block.GetAttribute("r2")
+	require.NotNil(t, r2)
+	assert.Equal(t, true, r2.IsResolvable())
+	assert.Equal(t, r2.Value().AsString(), "us-east-2")
+}
