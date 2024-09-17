@@ -13,18 +13,18 @@ import (
 	"strings"
 	"testing"
 
-	dtypes "github.com/docker/docker/api/types"
+	dimage "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 
+	"github.com/aquasecurity/trivy/pkg/cache"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/analyzer/all"
 	"github.com/aquasecurity/trivy/pkg/fanal/applier"
 	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
 	aimage "github.com/aquasecurity/trivy/pkg/fanal/artifact/image"
-	"github.com/aquasecurity/trivy/pkg/fanal/cache"
 	_ "github.com/aquasecurity/trivy/pkg/fanal/handler/all"
 	"github.com/aquasecurity/trivy/pkg/fanal/image"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
@@ -99,6 +99,15 @@ var tests = []testCase{
 		},
 	},
 	{
+		name:            "happy path, opensuse tumbleweed",
+		remoteImageName: "ghcr.io/aquasecurity/trivy-test-images:opensuse-tumbleweed",
+		imageFile:       "../../../../integration/testdata/fixtures/images/opensuse-tumbleweed.tar.gz",
+		wantOS: types.OS{
+			Name:   "20240607",
+			Family: "opensuse.tumbleweed",
+		},
+	},
+	{
 		// from registry.suse.com/suse/sle15:15.3.17.8.16
 		name:            "happy path, suse 15.3 (NDB)",
 		remoteImageName: "ghcr.io/aquasecurity/trivy-test-images:suse-15.3_ndb",
@@ -144,7 +153,7 @@ func TestFanal_Library_DockerLessMode(t *testing.T) {
 			require.NoError(t, err)
 
 			// remove existing Image if any
-			_, _ = cli.ImageRemove(ctx, tt.remoteImageName, dtypes.ImageRemoveOptions{
+			_, _ = cli.ImageRemove(ctx, tt.remoteImageName, dimage.RemoveOptions{
 				Force:         true,
 				PruneChildren: true,
 			})
@@ -230,7 +239,7 @@ func TestFanal_Library_DockerMode(t *testing.T) {
 			// clear Cache
 			require.NoError(t, c.Clear(), tt.name)
 
-			_, _ = cli.ImageRemove(ctx, tt.remoteImageName, dtypes.ImageRemoveOptions{
+			_, _ = cli.ImageRemove(ctx, tt.remoteImageName, dimage.RemoveOptions{
 				Force:         true,
 				PruneChildren: true,
 			})
@@ -326,16 +335,16 @@ func checkLangPkgs(detail types.ArtifactDetail, t *testing.T, tc testCase) {
 		})
 
 		for _, app := range detail.Applications {
-			sort.Sort(app.Libraries)
-			for i := range app.Libraries {
-				sort.Strings(app.Libraries[i].DependsOn)
+			sort.Sort(app.Packages)
+			for i := range app.Packages {
+				sort.Strings(app.Packages[i].DependsOn)
 			}
 		}
 
 		// Do not compare layers
 		for _, app := range detail.Applications {
-			for i := range app.Libraries {
-				app.Libraries[i].Layer = types.Layer{}
+			for i := range app.Packages {
+				app.Packages[i].Layer = types.Layer{}
 			}
 		}
 

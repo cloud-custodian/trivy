@@ -39,9 +39,10 @@ var (
 		"15.2": time.Date(2021, 12, 31, 23, 59, 59, 0, time.UTC),
 		"15.3": time.Date(2022, 12, 31, 23, 59, 59, 0, time.UTC),
 		"15.4": time.Date(2023, 12, 31, 23, 59, 59, 0, time.UTC),
-		"15.5": time.Date(2028, 12, 31, 23, 59, 59, 0, time.UTC),
+		"15.5": time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC),
+		"15.6": time.Date(2031, 7, 31, 23, 59, 59, 0, time.UTC),
 		// 6 months after SLES 15 SP7 release
-		// "15.6": time.Date(2028, 12, 31, 23, 59, 59, 0, time.UTC),
+		// "15.7": time.Date(2031, 7, 31, 23, 59, 59, 0, time.UTC),
 	}
 
 	opensuseEolDates = map[string]time.Time{
@@ -55,6 +56,7 @@ var (
 		"15.3": time.Date(2022, 11, 30, 23, 59, 59, 0, time.UTC),
 		"15.4": time.Date(2023, 11, 30, 23, 59, 59, 0, time.UTC),
 		"15.5": time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC),
+		"15.6": time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC),
 	}
 )
 
@@ -66,6 +68,7 @@ const (
 	SUSEEnterpriseLinux Type = iota
 	// OpenSUSE for open versions
 	OpenSUSE
+	OpenSUSETumbleweed
 )
 
 // Scanner implements the SUSE scanner
@@ -83,6 +86,10 @@ func NewScanner(t Type) *Scanner {
 	case OpenSUSE:
 		return &Scanner{
 			vs: susecvrf.NewVulnSrc(susecvrf.OpenSUSE),
+		}
+	case OpenSUSETumbleweed:
+		return &Scanner{
+			vs: susecvrf.NewVulnSrc(susecvrf.OpenSUSETumbleweed),
 		}
 	}
 	return nil
@@ -127,6 +134,10 @@ func (s *Scanner) Detect(ctx context.Context, osVer string, _ *ftypes.Repository
 func (s *Scanner) IsSupportedVersion(ctx context.Context, osFamily ftypes.OSType, osVer string) bool {
 	if osFamily == ftypes.SLES {
 		return osver.Supported(ctx, slesEolDates, osFamily, osVer)
+	}
+	// tumbleweed is a rolling release, it has no version and no eol
+	if osFamily == ftypes.OpenSUSETumbleweed {
+		return true
 	}
 	return osver.Supported(ctx, opensuseEolDates, osFamily, osVer)
 }

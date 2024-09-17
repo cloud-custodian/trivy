@@ -3,6 +3,7 @@ package spdx
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/spdx/tools-golang/spdx"
 	"github.com/spdx/tools-golang/spdx/v2/common"
 	spdxutils "github.com/spdx/tools-golang/utils"
-	"golang.org/x/exp/slices"
 	"golang.org/x/xerrors"
 
 	"github.com/aquasecurity/trivy/pkg/clock"
@@ -33,6 +33,7 @@ const (
 	CreatorOrganization    = "aquasecurity"
 	CreatorTool            = "trivy"
 	noneField              = "NONE"
+	noAssertionField       = "NOASSERTION"
 )
 
 const (
@@ -81,7 +82,7 @@ type Marshaler struct {
 	appVersion string // Trivy version. It needed for `creator` field
 }
 
-type Hash func(v interface{}, format hashstructure.Format, opts *hashstructure.HashOptions) (uint64, error)
+type Hash func(v any, format hashstructure.Format, opts *hashstructure.HashOptions) (uint64, error)
 
 type marshalOption func(*Marshaler)
 
@@ -147,6 +148,15 @@ func (m *Marshaler) Marshal(ctx context.Context, bom *core.BOM) (*spdx.Document,
 		if err != nil {
 			return nil, xerrors.Errorf("spdx package error: %w", err)
 		}
+
+		// Add advisories for package
+		// cf. https://spdx.github.io/spdx-spec/v2.3/how-to-use/#k1-including-security-information-in-a-spdx-document
+		if vulns, ok := bom.Vulnerabilities()[c.ID()]; ok {
+			for _, v := range vulns {
+				spdxPackage.PackageExternalReferences = append(spdxPackage.PackageExternalReferences, m.advisoryExternalReference(v.PrimaryURL))
+			}
+		}
+
 		packages = append(packages, &spdxPackage)
 		packageIDs[c.ID()] = spdxPackage.PackageSPDXIdentifier
 
@@ -184,6 +194,7 @@ func (m *Marshaler) Marshal(ctx context.Context, bom *core.BOM) (*spdx.Document,
 			relationShips = append(relationShips, m.spdxRelationShip(refA, refB, m.spdxRelationshipType(rel.Type)))
 		}
 	}
+
 	sortPackages(packages)
 	sortRelationships(relationShips)
 	sortFiles(files)
@@ -229,8 +240,8 @@ func (m *Marshaler) packageDownloadLocation(root *core.Component) string {
 func (m *Marshaler) rootSPDXPackage(root *core.Component, pkgDownloadLocation string) (*spdx.Package, error) {
 	var externalReferences []*spdx.PackageExternalReference
 	// When the target is a container image, add PURL to the external references of the root package.
-	if root.PkgID.PURL != nil {
-		externalReferences = append(externalReferences, m.purlExternalReference(root.PkgID.PURL.String()))
+	if root.PkgIdentifier.PURL != nil {
+		externalReferences = append(externalReferences, m.purlExternalReference(root.PkgIdentifier.PURL.String()))
 	}
 
 	pkgID, err := calcPkgID(m.hasher, fmt.Sprintf("%s-%s", root.Name, root.Type))
@@ -265,6 +276,14 @@ func (m *Marshaler) purlExternalReference(packageURL string) *spdx.PackageExtern
 		Category: CategoryPackageManager,
 		RefType:  RefTypePurl,
 		Locator:  packageURL,
+	}
+}
+
+func (m *Marshaler) advisoryExternalReference(primaryURL string) *spdx.PackageExternalReference {
+	return &spdx.PackageExternalReference{
+		Category: common.CategorySecurity,
+		RefType:  common.TypeSecurityAdvisory,
+		Locator:  primaryURL,
 	}
 }
 
@@ -304,8 +323,8 @@ func (m *Marshaler) spdxPackage(c *core.Component, pkgDownloadLocation string) (
 	}
 
 	var pkgExtRefs []*spdx.PackageExternalReference
-	if c.PkgID.PURL != nil {
-		pkgExtRefs = []*spdx.PackageExternalReference{m.purlExternalReference(c.PkgID.PURL.String())}
+	if c.PkgIdentifier.PURL != nil {
+		pkgExtRefs = []*spdx.PackageExternalReference{m.purlExternalReference(c.PkgIdentifier.PURL.String())}
 	}
 
 	var digests []digest.Digest
@@ -338,7 +357,7 @@ func (m *Marshaler) spdxPackage(c *core.Component, pkgDownloadLocation string) (
 }
 
 func spdxPkgName(component *core.Component) string {
-	if p := component.PkgID.PURL; p != nil && component.Group != "" {
+	if p := component.PkgIdentifier.PURL; p != nil && component.Group != "" {
 		if p.Type == packageurl.TypeMaven || p.Type == packageurl.TypeGradle {
 			return component.Group + ":" + component.Name
 		}
@@ -360,7 +379,7 @@ func (m *Marshaler) spdxAttributionTexts(c *core.Component) []string {
 
 func (m *Marshaler) spdxLicense(c *core.Component) string {
 	if len(c.Licenses) == 0 {
-		return noneField
+		return noAssertionField
 	}
 	return NormalizeLicense(c.Licenses)
 }
@@ -487,7 +506,7 @@ func getDocumentNamespace(root *core.Component) string {
 	)
 }
 
-func calcPkgID(h Hash, v interface{}) (string, error) {
+func calcPkgID(h Hash, v any) (string, error) {
 	f, err := h(v, hashstructure.FormatV2, &hashstructure.HashOptions{
 		ZeroNil:      true,
 		SlicesAsSets: true,
@@ -528,7 +547,7 @@ func NormalizeLicense(licenses []string) string {
 
 		return fmt.Sprintf("(%s)", license)
 	}), " AND ")
-	s, err := expression.Normalize(license, licensing.Normalize, expression.NormalizeForSPDX)
+	s, err := expression.Normalize(license, licensing.NormalizeLicense, expression.NormalizeForSPDX)
 	if err != nil {
 		// Not fail on the invalid license
 		log.Warn("Unable to marshal SPDX licenses", log.String("license", license))

@@ -91,6 +91,36 @@ func Test_osReleaseAnalyzer_Analyze(t *testing.T) {
 			},
 		},
 		{
+			name:      "Azure Linux",
+			inputFile: "testdata/azurelinux-3.0",
+			want: &analyzer.AnalysisResult{
+				OS: types.OS{
+					Family: types.Azure,
+					Name:   "3.0",
+				},
+			},
+		},
+		{
+			name:      "Mariner 2.0",
+			inputFile: "testdata/mariner-2.0",
+			want: &analyzer.AnalysisResult{
+				OS: types.OS{
+					Family: types.CBLMariner,
+					Name:   "2.0",
+				},
+			},
+		},
+		{
+			name:      "Mariner 1.0",
+			inputFile: "testdata/mariner-1.0",
+			want: &analyzer.AnalysisResult{
+				OS: types.OS{
+					Family: types.CBLMariner,
+					Name:   "1.0",
+				},
+			},
+		},
+		{
 			name:      "Unknown OS",
 			inputFile: "testdata/unknown",
 			want:      nil,
@@ -120,12 +150,12 @@ func Test_osReleaseAnalyzer_Analyze(t *testing.T) {
 			})
 
 			if tt.wantErr != "" {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Equal(t, tt.wantErr, err.Error())
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tt.want, res)
 		})
 	}

@@ -3,18 +3,22 @@ package rego_test
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"testing"
 	"testing/fstest"
 
-	trivy_policies "github.com/aquasecurity/trivy-policies"
+	"github.com/open-policy-agent/opa/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	checks "github.com/aquasecurity/trivy-checks"
 	"github.com/aquasecurity/trivy/pkg/iac/rego"
 	"github.com/aquasecurity/trivy/pkg/iac/scanners/options"
 	"github.com/aquasecurity/trivy/pkg/iac/types"
+	"github.com/aquasecurity/trivy/pkg/log"
 )
 
 //go:embed all:testdata/policies
@@ -26,10 +30,10 @@ var embeddedChecksFS embed.FS
 func Test_RegoScanning_WithSomeInvalidPolicies(t *testing.T) {
 	t.Run("allow no errors", func(t *testing.T) {
 		var debugBuf bytes.Buffer
+		slog.SetDefault(log.New(log.NewHandler(&debugBuf, nil)))
 		scanner := rego.NewScanner(
 			types.SourceDockerfile,
 			options.ScannerWithRegoErrorLimits(0),
-			options.ScannerWithDebug(&debugBuf),
 		)
 
 		err := scanner.LoadPolicies(false, false, testEmbedFS, []string{"."}, nil)
@@ -39,16 +43,16 @@ func Test_RegoScanning_WithSomeInvalidPolicies(t *testing.T) {
 
 	t.Run("allow up to max 1 error", func(t *testing.T) {
 		var debugBuf bytes.Buffer
+		slog.SetDefault(log.New(log.NewHandler(&debugBuf, nil)))
 		scanner := rego.NewScanner(
 			types.SourceDockerfile,
 			options.ScannerWithRegoErrorLimits(1),
-			options.ScannerWithDebug(&debugBuf),
 		)
 
 		err := scanner.LoadPolicies(false, false, testEmbedFS, []string{"."}, nil)
 		require.NoError(t, err)
 
-		assert.Contains(t, debugBuf.String(), "Error occurred while parsing: testdata/policies/invalid.rego, testdata/policies/invalid.rego:7")
+		assert.Contains(t, debugBuf.String(), "Error occurred while parsing\tfile_path=\"testdata/policies/invalid.rego\" err=\"testdata/policies/invalid.rego:7")
 	})
 
 	t.Run("schema does not exist", func(t *testing.T) {
@@ -95,7 +99,7 @@ deny {
 }`
 		scanner := rego.NewScanner(types.SourceJSON)
 		err := scanner.LoadPolicies(false, false, fstest.MapFS{}, []string{"."}, []io.Reader{strings.NewReader(check)})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 }
@@ -197,14 +201,51 @@ deny {
 			}
 
 			fsys := fstest.MapFS(tt.files)
-			trivy_policies.EmbeddedPolicyFileSystem = embeddedChecksFS
+			checks.EmbeddedPolicyFileSystem = embeddedChecksFS
 			err := scanner.LoadPolicies(false, false, fsys, []string{"."}, nil)
 
 			if tt.expectedErr != "" {
 				assert.ErrorContains(t, err, tt.expectedErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
+}
+
+func Test_FallbackErrorWithoutLocation(t *testing.T) {
+	fsys := fstest.MapFS{
+		"schemas/fooschema.json": {
+			Data: []byte(`{
+					"$schema": "http://json-schema.org/draft-07/schema#",
+					"type": "object",
+					"properties": {
+						"foo": {
+							"type": "string"
+						}
+					}
+				}`),
+		},
+	}
+
+	for i := 0; i < ast.CompileErrorLimitDefault+1; i++ {
+		src := `# METADATA
+# schemas:
+# - input: schema["fooschema"]
+package builtin.test%d
+
+deny {
+	input.evil == "foo bar"
+}`
+		fsys[fmt.Sprintf("policies/my-check%d.rego", i)] = &fstest.MapFile{
+			Data: []byte(fmt.Sprintf(src, i)),
+		}
+	}
+
+	scanner := rego.NewScanner(
+		types.SourceDockerfile,
+		options.ScannerWithEmbeddedPolicies(false),
+	)
+	err := scanner.LoadPolicies(false, false, fsys, []string{"."}, nil)
+	require.Error(t, err)
 }

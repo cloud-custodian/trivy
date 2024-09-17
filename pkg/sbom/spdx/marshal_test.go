@@ -2,22 +2,24 @@ package spdx_test
 
 import (
 	"context"
-	"github.com/aquasecurity/trivy/pkg/sbom/core"
-	"github.com/package-url/packageurl-go"
 	"hash/fnv"
 	"testing"
 	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/mitchellh/hashstructure/v2"
+	"github.com/package-url/packageurl-go"
 	"github.com/spdx/tools-golang/spdx"
 	"github.com/spdx/tools-golang/spdx/v2/common"
+	"github.com/spdx/tools-golang/spdxlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aquasecurity/trivy/pkg/clock"
+	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/report"
+	"github.com/aquasecurity/trivy/pkg/sbom/core"
 	tspdx "github.com/aquasecurity/trivy/pkg/sbom/spdx"
 	"github.com/aquasecurity/trivy/pkg/types"
 	"github.com/aquasecurity/trivy/pkg/uuid"
@@ -34,7 +36,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 			inputReport: types.Report{
 				SchemaVersion: report.SchemaVersion,
 				ArtifactName:  "rails:latest",
-				ArtifactType:  ftypes.ArtifactContainerImage,
+				ArtifactType:  artifact.TypeContainerImage,
 				Metadata: types.Metadata{
 					Size: 1024,
 					OS: &ftypes.OS{
@@ -48,6 +50,11 @@ func TestMarshaler_Marshal(t *testing.T) {
 					RepoDigests: []string{"rails@sha256:a27fd8080b517143cbbbab9dfb7c8571c40d67d534bbdee55bd6c473f432b177"},
 					ImageConfig: v1.ConfigFile{
 						Architecture: "arm64",
+						Config: v1.Config{
+							Labels: map[string]string{
+								"vendor": "aquasecurity",
+							},
+						},
 					},
 				},
 				Results: types.Results{
@@ -63,6 +70,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 								Epoch:   0,
 								Arch:    "aarch64",
 								Identifier: ftypes.PkgIdentifier{
+									UID: "F4C10A4371C93487",
 									PURL: &packageurl.PackageURL{
 										Type:      packageurl.TypeRPM,
 										Namespace: "centos",
@@ -100,6 +108,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 								Name:    "actionpack",
 								Version: "7.0.1",
 								Identifier: ftypes.PkgIdentifier{
+									UID: "B1A9DE534F2737AF",
 									PURL: &packageurl.PackageURL{
 										Type:    packageurl.TypeGem,
 										Name:    "actionpack",
@@ -111,6 +120,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 								Name:    "actioncontroller",
 								Version: "7.0.1",
 								Identifier: ftypes.PkgIdentifier{
+									UID: "1628B51BD543965D",
 									PURL: &packageurl.PackageURL{
 										Type:    packageurl.TypeGem,
 										Name:    "actioncontroller",
@@ -129,6 +139,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 								Name:    "actionpack",
 								Version: "7.0.1",
 								Identifier: ftypes.PkgIdentifier{
+									UID: "92D6B6D3FF6F8FF5",
 									PURL: &packageurl.PackageURL{
 										Type:    packageurl.TypeGem,
 										Name:    "actionpack",
@@ -194,6 +205,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageAttributionTexts: []string{
 							"DiffID: sha256:d871dadfb37b53ef1ca45be04fc527562b91989991a8f545345ae3be0b93f92a",
 							"ImageID: sha256:5d0da3dc976460b72c77d94c8a1ad043720b0416bfc16c52c45d4847e53fadb6",
+							"Labels:vendor: aquasecurity",
 							"RepoDigest: rails@sha256:a27fd8080b517143cbbbab9dfb7c8571c40d67d534bbdee55bd6c473f432b177",
 							"RepoTag: rails:latest",
 							"SchemaVersion: 2",
@@ -206,8 +218,8 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageDownloadLocation: "NONE",
 						PackageName:             "actioncontroller",
 						PackageVersion:          "7.0.1",
-						PackageLicenseConcluded: "NONE",
-						PackageLicenseDeclared:  "NONE",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
 						PackageAttributionTexts: []string{
 							"PkgType: bundler",
 						},
@@ -227,8 +239,8 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageDownloadLocation: "NONE",
 						PackageName:             "actionpack",
 						PackageVersion:          "7.0.1",
-						PackageLicenseConcluded: "NONE",
-						PackageLicenseDeclared:  "NONE",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
 						PackageAttributionTexts: []string{
 							"PkgType: bundler",
 						},
@@ -248,8 +260,8 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageDownloadLocation: "NONE",
 						PackageName:             "actionpack",
 						PackageVersion:          "7.0.1",
-						PackageLicenseConcluded: "NONE",
-						PackageLicenseDeclared:  "NONE",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
 						PackageAttributionTexts: []string{
 							"PkgType: bundler",
 						},
@@ -358,7 +370,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 			inputReport: types.Report{
 				SchemaVersion: report.SchemaVersion,
 				ArtifactName:  "centos:latest",
-				ArtifactType:  ftypes.ArtifactContainerImage,
+				ArtifactType:  artifact.TypeContainerImage,
 				Metadata: types.Metadata{
 					Size: 1024,
 					OS: &ftypes.OS{
@@ -386,6 +398,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 								Epoch:   1,
 								Arch:    "aarch64",
 								Identifier: ftypes.PkgIdentifier{
+									UID: "740219943F17B1DF",
 									PURL: &packageurl.PackageURL{
 										Type:      packageurl.TypeRPM,
 										Namespace: "centos",
@@ -426,6 +439,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 								Name:    "actionpack",
 								Version: "7.0.1",
 								Identifier: ftypes.PkgIdentifier{
+									UID: "E8DB2C6E35F8B990",
 									PURL: &packageurl.PackageURL{
 										Type:    packageurl.TypeGem,
 										Name:    "actionpack",
@@ -442,6 +456,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 								Name:    "actionpack",
 								Version: "7.0.1",
 								Identifier: ftypes.PkgIdentifier{
+									UID: "B3E70B2159CFAC50",
 									PURL: &packageurl.PackageURL{
 										Type:    packageurl.TypeGem,
 										Name:    "actionpack",
@@ -522,8 +537,8 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageDownloadLocation: "NONE",
 						PackageName:             "actionpack",
 						PackageVersion:          "7.0.1",
-						PackageLicenseConcluded: "NONE",
-						PackageLicenseDeclared:  "NONE",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
 						PackageExternalReferences: []*spdx.PackageExternalReference{
 							{
 								Category: tspdx.CategoryPackageManager,
@@ -547,8 +562,8 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageDownloadLocation: "NONE",
 						PackageName:             "actionpack",
 						PackageVersion:          "7.0.1",
-						PackageLicenseConcluded: "NONE",
-						PackageLicenseDeclared:  "NONE",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
 						PackageExternalReferences: []*spdx.PackageExternalReference{
 							{
 								Category: tspdx.CategoryPackageManager,
@@ -649,7 +664,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 			inputReport: types.Report{
 				SchemaVersion: report.SchemaVersion,
 				ArtifactName:  "masahiro331/CVE-2021-41098",
-				ArtifactType:  ftypes.ArtifactFilesystem,
+				ArtifactType:  artifact.TypeFilesystem,
 				Results: types.Results{
 					{
 						Target: "Gemfile.lock",
@@ -736,8 +751,8 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageDownloadLocation: "NONE",
 						PackageName:             "actioncable",
 						PackageVersion:          "6.1.4.1",
-						PackageLicenseConcluded: "NONE",
-						PackageLicenseDeclared:  "NONE",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
 						PackageExternalReferences: []*spdx.PackageExternalReference{
 							{
 								Category: tspdx.CategoryPackageManager,
@@ -757,8 +772,8 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageDownloadLocation: "NONE",
 						PackageName:             "com.example:example",
 						PackageVersion:          "1.0.0",
-						PackageLicenseConcluded: "NONE",
-						PackageLicenseDeclared:  "NONE",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
 						PackageExternalReferences: []*spdx.PackageExternalReference{
 							{
 								Category: tspdx.CategoryPackageManager,
@@ -814,11 +829,117 @@ func TestMarshaler_Marshal(t *testing.T) {
 			},
 		},
 		{
+			name: "happy path with vulnerability",
+			inputReport: types.Report{
+				SchemaVersion: report.SchemaVersion,
+				ArtifactName:  "log4j-core-2.17.0.jar",
+				ArtifactType:  artifact.TypeFilesystem,
+				Results: types.Results{
+					{
+						Target: "Java",
+						Class:  types.ClassLangPkg,
+						Type:   ftypes.Jar,
+						Packages: []ftypes.Package{
+							{
+								Name:    "org.apache.logging.log4j:log4j-core",
+								Version: "2.17.0",
+								Identifier: ftypes.PkgIdentifier{
+									PURL: &packageurl.PackageURL{
+										Type:      packageurl.TypeMaven,
+										Namespace: "org.apache.logging.log4j",
+										Name:      "log4j-core",
+										Version:   "2.17.0",
+									},
+								},
+							},
+						},
+						Vulnerabilities: []types.DetectedVulnerability{
+							{
+								VulnerabilityID:  "CVE-2021-44832",
+								PkgName:          "org.apache.logging.log4j:log4j-core",
+								InstalledVersion: "2.17.0",
+								FixedVersion:     "2.3.2, 2.12.4, 2.17.1",
+								PrimaryURL:       "https://avd.aquasec.com/nvd/cve-2021-44832",
+							},
+						},
+					},
+				},
+			},
+			wantSBOM: &spdx.Document{
+				SPDXVersion:       spdx.Version,
+				DataLicense:       spdx.DataLicense,
+				SPDXIdentifier:    "DOCUMENT",
+				DocumentName:      "log4j-core-2.17.0.jar",
+				DocumentNamespace: "http://aquasecurity.github.io/trivy/filesystem/log4j-core-2.17.0.jar-3ff14136-e09f-4df9-80ea-000000000003",
+				CreationInfo: &spdx.CreationInfo{
+					Creators: []common.Creator{
+						{
+							Creator:     "aquasecurity",
+							CreatorType: "Organization",
+						},
+						{
+							Creator:     "trivy-0.38.1",
+							CreatorType: "Tool",
+						},
+					},
+					Created: "2021-08-25T12:20:30Z",
+				},
+				Packages: []*spdx.Package{
+					{
+						PackageSPDXIdentifier:   spdx.ElementID("Package-4ee6f197f4811213"),
+						PackageDownloadLocation: "NONE",
+						PackageName:             "org.apache.logging.log4j:log4j-core",
+						PackageVersion:          "2.17.0",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
+						PackageExternalReferences: []*spdx.PackageExternalReference{
+							{
+								Category: tspdx.CategoryPackageManager,
+								RefType:  tspdx.RefTypePurl,
+								Locator:  "pkg:maven/org.apache.logging.log4j/log4j-core@2.17.0",
+							},
+							{
+								Category: "SECURITY",
+								RefType:  "advisory",
+								Locator:  "https://avd.aquasec.com/nvd/cve-2021-44832",
+							},
+						},
+						PrimaryPackagePurpose: tspdx.PackagePurposeLibrary,
+						PackageSupplier:       &spdx.Supplier{Supplier: tspdx.PackageSupplierNoAssertion},
+						PackageAttributionTexts: []string{
+							"PkgType: jar",
+						},
+					},
+					{
+						PackageSPDXIdentifier:   spdx.ElementID("Filesystem-121e7e7a43f02ab"),
+						PackageDownloadLocation: "NONE",
+						PackageName:             "log4j-core-2.17.0.jar",
+						PackageAttributionTexts: []string{
+							"SchemaVersion: 2",
+						},
+						PrimaryPackagePurpose: tspdx.PackagePurposeSource,
+					},
+				},
+				Relationships: []*spdx.Relationship{
+					{
+						RefA:         spdx.DocElementID{ElementRefID: "DOCUMENT"},
+						RefB:         spdx.DocElementID{ElementRefID: "Filesystem-121e7e7a43f02ab"},
+						Relationship: "DESCRIBES",
+					},
+					{
+						RefA:         spdx.DocElementID{ElementRefID: "Filesystem-121e7e7a43f02ab"},
+						RefB:         spdx.DocElementID{ElementRefID: "Package-4ee6f197f4811213"},
+						Relationship: "CONTAINS",
+					},
+				},
+			},
+		},
+		{
 			name: "happy path aggregate results",
 			inputReport: types.Report{
 				SchemaVersion: report.SchemaVersion,
 				ArtifactName:  "http://test-aggregate",
-				ArtifactType:  ftypes.ArtifactRepository,
+				ArtifactType:  artifact.TypeRepository,
 				Results: types.Results{
 					{
 						Target: "Node.js",
@@ -937,7 +1058,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 			inputReport: types.Report{
 				SchemaVersion: report.SchemaVersion,
 				ArtifactName:  "empty/path",
-				ArtifactType:  ftypes.ArtifactFilesystem,
+				ArtifactType:  artifact.TypeFilesystem,
 				Results:       types.Results{},
 			},
 			wantSBOM: &spdx.Document{
@@ -985,7 +1106,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 			inputReport: types.Report{
 				SchemaVersion: report.SchemaVersion,
 				ArtifactName:  "secret",
-				ArtifactType:  ftypes.ArtifactFilesystem,
+				ArtifactType:  artifact.TypeFilesystem,
 				Results: types.Results{
 					{
 						Target: "key.pem",
@@ -1047,7 +1168,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 			inputReport: types.Report{
 				SchemaVersion: report.SchemaVersion,
 				ArtifactName:  "go-artifact",
-				ArtifactType:  ftypes.ArtifactFilesystem,
+				ArtifactType:  artifact.TypeFilesystem,
 				Results: types.Results{
 					{
 						Target: "/usr/local/bin/test",
@@ -1062,6 +1183,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 								Name:    "golang.org/x/crypto",
 								Version: "v0.0.1",
 								Identifier: ftypes.PkgIdentifier{
+									UID: "161541A259EF014B",
 									PURL: &packageurl.PackageURL{
 										Type:      packageurl.TypeGolang,
 										Namespace: "golang.org/x",
@@ -1108,8 +1230,8 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageSPDXIdentifier:   spdx.ElementID("Package-b1c3b9e2363f5ff7"),
 						PackageDownloadLocation: "NONE",
 						PackageName:             "./private_repos/cnrm.googlesource.com/cnrm/",
-						PackageLicenseConcluded: "NONE",
-						PackageLicenseDeclared:  "NONE",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
 						PrimaryPackagePurpose:   tspdx.PackagePurposeLibrary,
 						PackageSupplier:         &spdx.Supplier{Supplier: tspdx.PackageSupplierNoAssertion},
 						PackageSourceInfo:       "package found in: /usr/local/bin/test",
@@ -1122,8 +1244,8 @@ func TestMarshaler_Marshal(t *testing.T) {
 						PackageDownloadLocation: "NONE",
 						PackageName:             "golang.org/x/crypto",
 						PackageVersion:          "v0.0.1",
-						PackageLicenseConcluded: "NONE",
-						PackageLicenseDeclared:  "NONE",
+						PackageLicenseConcluded: "NOASSERTION",
+						PackageLicenseDeclared:  "NOASSERTION",
 						PackageExternalReferences: []*spdx.PackageExternalReference{
 							{
 								Category: tspdx.CategoryPackageManager,
@@ -1208,6 +1330,7 @@ func TestMarshaler_Marshal(t *testing.T) {
 			spdxDoc, err := marshaler.MarshalReport(ctx, tc.inputReport)
 			require.NoError(t, err)
 
+			assert.NoError(t, spdxlib.ValidateDocument(spdxDoc))
 			assert.Equal(t, tc.wantSBOM, spdxDoc)
 		})
 	}
@@ -1240,7 +1363,7 @@ func Test_GetLicense(t *testing.T) {
 				"GPLv2+",
 				"LGPL 2.0 or GNU LESSER",
 			},
-			want: "GPL-2.0-or-later AND (LGPL-2.0-only OR LGPL-3.0-only)",
+			want: "GPL-2.0-or-later AND (LGPL-2.0-only OR LGPL-2.1-only)",
 		},
 		{
 			name: "happy path with AND operator",
@@ -1248,7 +1371,7 @@ func Test_GetLicense(t *testing.T) {
 				"GPLv2+",
 				"LGPL 2.0 and GNU LESSER",
 			},
-			want: "GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-3.0-only",
+			want: "GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.1-only",
 		},
 		{
 			name: "happy path with WITH operator",

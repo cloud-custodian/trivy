@@ -1,17 +1,22 @@
 package parser
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"os"
+	"path/filepath"
 	"sort"
 	"testing"
+	"testing/fstest"
 
-	"github.com/aquasecurity/trivy/internal/testutil"
-	"github.com/aquasecurity/trivy/pkg/iac/scanners/options"
-	"github.com/aquasecurity/trivy/pkg/iac/terraform"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/aquasecurity/trivy/internal/testutil"
+	"github.com/aquasecurity/trivy/pkg/iac/terraform"
+	"github.com/aquasecurity/trivy/pkg/log"
 )
 
 func Test_BasicParsing(t *testing.T) {
@@ -169,11 +174,11 @@ output "mod_result" {
 `,
 	})
 
-	parser := New(fs, "", OptionStopOnHCLError(true), options.ParserWithDebug(os.Stderr))
+	parser := New(fs, "", OptionStopOnHCLError(true))
 	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
 
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	require.Len(t, modules, 2)
 	rootModule := modules[0]
@@ -234,7 +239,7 @@ output "mod_result" {
 	parser := New(fs, "", OptionStopOnHCLError(true))
 	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Len(t, modules, 2)
 	rootModule := modules[0]
 	childModule := modules[1]
@@ -279,7 +284,7 @@ resource "something" "blah" {
 	parser := New(fs, "", OptionStopOnHCLError(true))
 	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Len(t, modules, 1)
 	rootModule := modules[0]
 
@@ -290,7 +295,7 @@ resource "something" "blah" {
 	attr := block.GetAttribute("value")
 	require.NotNil(t, attr)
 
-	assert.Equal(t, false, attr.IsResolvable())
+	assert.False(t, attr.IsResolvable())
 }
 
 func Test_UndefinedModuleOutputReferenceInSlice(t *testing.T) {
@@ -306,7 +311,7 @@ resource "something" "blah" {
 	parser := New(fs, "", OptionStopOnHCLError(true))
 	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Len(t, modules, 1)
 	rootModule := modules[0]
 
@@ -317,18 +322,18 @@ resource "something" "blah" {
 	attr := block.GetAttribute("value")
 	require.NotNil(t, attr)
 
-	assert.Equal(t, true, attr.IsResolvable())
+	assert.True(t, attr.IsResolvable())
 
 	values := attr.AsStringValueSliceOrEmpty()
 	require.Len(t, values, 3)
 
 	assert.Equal(t, "first", values[0].Value())
-	assert.Equal(t, true, values[0].GetMetadata().IsResolvable())
+	assert.True(t, values[0].GetMetadata().IsResolvable())
 
-	assert.Equal(t, false, values[1].GetMetadata().IsResolvable())
+	assert.False(t, values[1].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "last", values[2].Value())
-	assert.Equal(t, true, values[2].GetMetadata().IsResolvable())
+	assert.True(t, values[2].GetMetadata().IsResolvable())
 }
 
 func Test_TemplatedSliceValue(t *testing.T) {
@@ -349,7 +354,7 @@ resource "something" "blah" {
 	parser := New(fs, "", OptionStopOnHCLError(true))
 	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Len(t, modules, 1)
 	rootModule := modules[0]
 
@@ -360,19 +365,19 @@ resource "something" "blah" {
 	attr := block.GetAttribute("value")
 	require.NotNil(t, attr)
 
-	assert.Equal(t, true, attr.IsResolvable())
+	assert.True(t, attr.IsResolvable())
 
 	values := attr.AsStringValueSliceOrEmpty()
 	require.Len(t, values, 3)
 
 	assert.Equal(t, "first", values[0].Value())
-	assert.Equal(t, true, values[0].GetMetadata().IsResolvable())
+	assert.True(t, values[0].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "hello-hello", values[1].Value())
-	assert.Equal(t, true, values[1].GetMetadata().IsResolvable())
+	assert.True(t, values[1].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "last", values[2].Value())
-	assert.Equal(t, true, values[2].GetMetadata().IsResolvable())
+	assert.True(t, values[2].GetMetadata().IsResolvable())
 }
 
 func Test_SliceOfVars(t *testing.T) {
@@ -397,7 +402,7 @@ resource "something" "blah" {
 	parser := New(fs, "", OptionStopOnHCLError(true))
 	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Len(t, modules, 1)
 	rootModule := modules[0]
 
@@ -408,16 +413,16 @@ resource "something" "blah" {
 	attr := block.GetAttribute("value")
 	require.NotNil(t, attr)
 
-	assert.Equal(t, true, attr.IsResolvable())
+	assert.True(t, attr.IsResolvable())
 
 	values := attr.AsStringValueSliceOrEmpty()
 	require.Len(t, values, 2)
 
 	assert.Equal(t, "1", values[0].Value())
-	assert.Equal(t, true, values[0].GetMetadata().IsResolvable())
+	assert.True(t, values[0].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "2", values[1].Value())
-	assert.Equal(t, true, values[1].GetMetadata().IsResolvable())
+	assert.True(t, values[1].GetMetadata().IsResolvable())
 }
 
 func Test_VarSlice(t *testing.T) {
@@ -438,7 +443,7 @@ resource "something" "blah" {
 	parser := New(fs, "", OptionStopOnHCLError(true))
 	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Len(t, modules, 1)
 	rootModule := modules[0]
 
@@ -449,19 +454,19 @@ resource "something" "blah" {
 	attr := block.GetAttribute("value")
 	require.NotNil(t, attr)
 
-	assert.Equal(t, true, attr.IsResolvable())
+	assert.True(t, attr.IsResolvable())
 
 	values := attr.AsStringValueSliceOrEmpty()
 	require.Len(t, values, 3)
 
 	assert.Equal(t, "a", values[0].Value())
-	assert.Equal(t, true, values[0].GetMetadata().IsResolvable())
+	assert.True(t, values[0].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "b", values[1].Value())
-	assert.Equal(t, true, values[1].GetMetadata().IsResolvable())
+	assert.True(t, values[1].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "c", values[2].Value())
-	assert.Equal(t, true, values[2].GetMetadata().IsResolvable())
+	assert.True(t, values[2].GetMetadata().IsResolvable())
 }
 
 func Test_LocalSliceNested(t *testing.T) {
@@ -486,7 +491,7 @@ resource "something" "blah" {
 	parser := New(fs, "", OptionStopOnHCLError(true))
 	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Len(t, modules, 1)
 	rootModule := modules[0]
 
@@ -497,19 +502,19 @@ resource "something" "blah" {
 	attr := block.GetAttribute("value")
 	require.NotNil(t, attr)
 
-	assert.Equal(t, true, attr.IsResolvable())
+	assert.True(t, attr.IsResolvable())
 
 	values := attr.AsStringValueSliceOrEmpty()
 	require.Len(t, values, 3)
 
 	assert.Equal(t, "a", values[0].Value())
-	assert.Equal(t, true, values[0].GetMetadata().IsResolvable())
+	assert.True(t, values[0].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "b", values[1].Value())
-	assert.Equal(t, true, values[1].GetMetadata().IsResolvable())
+	assert.True(t, values[1].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "c", values[2].Value())
-	assert.Equal(t, true, values[2].GetMetadata().IsResolvable())
+	assert.True(t, values[2].GetMetadata().IsResolvable())
 }
 
 func Test_FunctionCall(t *testing.T) {
@@ -542,19 +547,19 @@ resource "something" "blah" {
 	attr := block.GetAttribute("value")
 	require.NotNil(t, attr)
 
-	assert.Equal(t, true, attr.IsResolvable())
+	assert.True(t, attr.IsResolvable())
 
 	values := attr.AsStringValueSliceOrEmpty()
 	require.Len(t, values, 3)
 
 	assert.Equal(t, "a", values[0].Value())
-	assert.Equal(t, true, values[0].GetMetadata().IsResolvable())
+	assert.True(t, values[0].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "b", values[1].Value())
-	assert.Equal(t, true, values[1].GetMetadata().IsResolvable())
+	assert.True(t, values[1].GetMetadata().IsResolvable())
 
 	assert.Equal(t, "c", values[2].Value())
-	assert.Equal(t, true, values[2].GetMetadata().IsResolvable())
+	assert.True(t, values[2].GetMetadata().IsResolvable())
 }
 
 func Test_NullDefaultValueForVar(t *testing.T) {
@@ -634,7 +639,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this2" {
 	parser := New(fs, "", OptionStopOnHCLError(true))
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, modules, 1)
 
 	rootModule := modules[0]
@@ -669,7 +674,7 @@ resource "aws_s3_bucket" "main" {
 
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, modules, 1)
 
 	rootModule := modules[0]
@@ -702,7 +707,7 @@ resource "aws_s3_bucket" "this" {
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
 
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, modules, 1)
 
 	rootModule := modules[0]
@@ -736,7 +741,7 @@ resource "aws_s3_bucket" "this" {
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
 
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, modules, 1)
 
 	rootModule := modules[0]
@@ -790,7 +795,7 @@ policy_rules = {
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
 
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, modules, 1)
 
 	rootModule := modules[0]
@@ -801,7 +806,7 @@ policy_rules = {
 	block := blocks[0]
 
 	assert.Equal(t, "secure-tag-1", block.GetAttribute("name").AsStringValueOrDefault("", block).Value())
-	assert.Equal(t, true, block.GetAttribute("enabled").AsBoolValueOrDefault(false, block).Value())
+	assert.True(t, block.GetAttribute("enabled").AsBoolValueOrDefault(false, block).Value())
 	assert.Equal(t, "host() != 'google.com'", block.GetAttribute("session_matcher").AsStringValueOrDefault("", block).Value())
 	assert.Equal(t, 1001, block.GetAttribute("priority").AsIntValueOrDefault(0, block).Value())
 }
@@ -826,7 +831,7 @@ resource "aws_s3_bucket" "this" {
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
 
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, modules, 1)
 
 	bucketBlocks := modules.GetResourcesByType("aws_s3_bucket")
@@ -858,7 +863,7 @@ data "http" "example" {
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
 
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, modules, 1)
 
 	rootModule := modules[0]
@@ -895,7 +900,7 @@ data "http" "example" {
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
 
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, modules, 1)
 
 	rootModule := modules[0]
@@ -1267,7 +1272,7 @@ func TestForEachWithObjectsOfDifferentTypes(t *testing.T) {
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
 
 	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, modules, 1)
 }
 
@@ -1508,7 +1513,7 @@ func parse(t *testing.T, files map[string]string) terraform.Modules {
 	return modules
 }
 
-func compareSets(a []int, b []int) bool {
+func compareSets(a, b []int) bool {
 	m := make(map[int]bool)
 	for _, el := range a {
 		m[el] = true
@@ -1700,6 +1705,187 @@ resource "test" "values" {
 	})))
 }
 
+func Test_LoadLocalCachedModule(t *testing.T) {
+	fsys := os.DirFS(filepath.Join("testdata", "cached-modules"))
+
+	parser := New(
+		fsys, "",
+		OptionStopOnHCLError(true),
+		OptionWithDownloads(false),
+	)
+	require.NoError(t, parser.ParseFS(context.TODO(), "."))
+
+	modules, _, err := parser.EvaluateAll(context.TODO())
+	require.NoError(t, err)
+
+	assert.Len(t, modules, 2)
+
+	buckets := modules.GetResourcesByType("aws_s3_bucket")
+	assert.Len(t, buckets, 1)
+
+	assert.Equal(t, "my-private-module/s3-bucket/aws/.terraform/modules/s3-bucket/main.tf", buckets[0].GetMetadata().Range().GetFilename())
+
+	bucketName := buckets[0].GetAttribute("bucket").Value().AsString()
+	assert.Equal(t, "my-s3-bucket", bucketName)
+}
+
+func TestTFVarsFileDoesNotExist(t *testing.T) {
+	fsys := fstest.MapFS{
+		"main.tf": &fstest.MapFile{
+			Data: []byte(``),
+		},
+	}
+
+	parser := New(
+		fsys, "",
+		OptionStopOnHCLError(true),
+		OptionWithDownloads(false),
+		OptionWithTFVarsPaths("main.tfvars"),
+	)
+	require.NoError(t, parser.ParseFS(context.TODO(), "."))
+
+	_, _, err := parser.EvaluateAll(context.TODO())
+	assert.ErrorContains(t, err, "file does not exist")
+}
+
+func Test_OptionsWithTfVars(t *testing.T) {
+	fs := testutil.CreateFS(t, map[string]string{
+		"main.tf": `resource "test" "this" {
+  foo = var.foo
+}
+variable "foo" {}
+`})
+
+	parser := New(fs, "", OptionsWithTfVars(
+		map[string]cty.Value{
+			"foo": cty.StringVal("bar"),
+		},
+	))
+
+	require.NoError(t, parser.ParseFS(context.TODO(), "."))
+
+	modules, _, err := parser.EvaluateAll(context.TODO())
+	require.NoError(t, err)
+	assert.Len(t, modules, 1)
+
+	rootModule := modules[0]
+
+	blocks := rootModule.GetResourcesByType("test")
+	assert.Len(t, blocks, 1)
+	assert.Equal(t, "bar", blocks[0].GetAttribute("foo").Value().AsString())
+}
+
+func TestDynamicWithIterator(t *testing.T) {
+	fsys := fstest.MapFS{
+		"main.tf": &fstest.MapFile{
+			Data: []byte(`resource "aws_s3_bucket" "this" {
+  dynamic versioning {
+    for_each = [true]
+    iterator = ver
+
+    content {
+      enabled = ver.value
+    }
+  }
+}`),
+		},
+	}
+
+	parser := New(
+		fsys, "",
+		OptionStopOnHCLError(true),
+		OptionWithDownloads(false),
+	)
+	require.NoError(t, parser.ParseFS(context.TODO(), "."))
+
+	modules, _, err := parser.EvaluateAll(context.TODO())
+	require.NoError(t, err)
+
+	assert.Len(t, modules, 1)
+
+	buckets := modules.GetResourcesByType("aws_s3_bucket")
+	assert.Len(t, buckets, 1)
+
+	attr, _ := buckets[0].GetNestedAttribute("versioning.enabled")
+
+	assert.True(t, attr.Value().True())
+}
+
+
+func Test_AWSRegionNameDefined(t *testing.T) {
+
+	fs := testutil.CreateFS(t, map[string]string{
+		"code/test.tf": `
+data "aws_region" "current" {}
+
+data "aws_region" "other" {
+  name = "us-east-2"
+}
+
+resource "something" "blah" {
+  r1 = data.aws_region.current.name
+  r2 = data.aws_region.other.name
+}
+`,
+	})
+
+	parser := New(fs, "", OptionStopOnHCLError(true))
+	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
+	modules, _, err := parser.EvaluateAll(context.TODO())
+	require.NoError(t, err)
+	require.Len(t, modules, 1)
+	rootModule := modules[0]
+
+	blocks := rootModule.GetResourcesByType("something")
+	require.Len(t, blocks, 1)
+	block := blocks[0]
+
+	r1 := block.GetAttribute("r1")
+	require.NotNil(t, r1)
+	assert.True(t, r1.IsResolvable())
+	assert.Equal(t, "current-region", r1.Value().AsString())
+
+	r2 := block.GetAttribute("r2")
+	require.NotNil(t, r2)
+	assert.True(t, r2.IsResolvable())
+	assert.Equal(t, "us-east-2", r2.Value().AsString())
+}
+
+func TestLogAboutMissingVariableValues(t *testing.T) {
+	var buf bytes.Buffer
+	slog.SetDefault(slog.New(log.NewHandler(&buf, nil)))
+
+	fsys := fstest.MapFS{
+		"main.tf": &fstest.MapFile{
+			Data: []byte(`
+variable "foo" {}
+
+variable "bar" {
+  default = "bar"
+}
+
+variable "baz" {}
+`),
+		},
+		"main.tfvars": &fstest.MapFile{
+			Data: []byte(`baz = "baz"`),
+		},
+	}
+
+	parser := New(
+		fsys, "",
+		OptionStopOnHCLError(true),
+		OptionWithTFVarsPaths("main.tfvars"),
+	)
+	require.NoError(t, parser.ParseFS(context.TODO(), "."))
+
+	_, err := parser.Load(context.TODO())
+	require.NoError(t, err)
+
+	assert.Contains(t, buf.String(), "Variable values was not found in the environment or variable files.")
+	assert.Contains(t, buf.String(), "variables=\"foo\"")
+}
+
 func TestEmptyVarBlock(t *testing.T) {
 	files := map[string]string{
 		"main.tf": `
@@ -1796,43 +1982,4 @@ resource "test" "values" {
 	bad_attr_2 := resources[0].GetAttribute("p")
 	require.NotNil(t, bad_attr_2)
 	assert.Nil(t, bad_attr_2.GetRawValue())
-}
-
-func Test_AWSRegionNameDefined(t *testing.T) {
-
-	fs := testutil.CreateFS(t, map[string]string{
-		"code/test.tf": `
-data "aws_region" "current" {}
-
-data "aws_region" "other" {
-  name = "us-east-2"
-}
-
-resource "something" "blah" {
-  r1 = data.aws_region.current.name
-  r2 = data.aws_region.other.name
-}
-`,
-	})
-
-	parser := New(fs, "", OptionStopOnHCLError(true))
-	require.NoError(t, parser.ParseFS(context.TODO(), "code"))
-	modules, _, err := parser.EvaluateAll(context.TODO())
-	assert.NoError(t, err)
-	require.Len(t, modules, 1)
-	rootModule := modules[0]
-
-	blocks := rootModule.GetResourcesByType("something")
-	require.Len(t, blocks, 1)
-	block := blocks[0]
-
-	r1 := block.GetAttribute("r1")
-	require.NotNil(t, r1)
-	assert.Equal(t, true, r1.IsResolvable())
-	assert.Equal(t, r1.Value().AsString(), "current-region")
-
-	r2 := block.GetAttribute("r2")
-	require.NotNil(t, r2)
-	assert.Equal(t, true, r2.IsResolvable())
-	assert.Equal(t, r2.Value().AsString(), "us-east-2")
 }

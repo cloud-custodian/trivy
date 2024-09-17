@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"path"
@@ -9,12 +8,13 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/aquasecurity/trivy/pkg/iac/scan"
-	"github.com/aquasecurity/trivy/pkg/iac/scanners/options"
-	tfscanner "github.com/aquasecurity/trivy/pkg/iac/scanners/terraform"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aquasecurity/trivy/pkg/iac/scan"
+	"github.com/aquasecurity/trivy/pkg/iac/scanners/options"
+	tfscanner "github.com/aquasecurity/trivy/pkg/iac/scanners/terraform"
 )
 
 func initScanner(opts ...options.ScannerOption) *Scanner {
@@ -97,15 +97,17 @@ func Test_ScanFS(t *testing.T) {
 			dir:         "with-remote-module",
 			expectedIDs: []string{"ID001"},
 		},
+		{
+			dir:         "with-var",
+			expectedIDs: []string{"ID001"},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.dir, func(t *testing.T) {
 			fs := os.DirFS("testdata")
 
-			debugLog := bytes.NewBuffer([]byte{})
 			scanner := New(
-				options.ScannerWithDebug(debugLog),
 				options.ScannerWithPolicyDirs(path.Join(tc.dir, "checks")),
 				options.ScannerWithPolicyFilesystem(fs),
 				options.ScannerWithRegoOnly(true),
@@ -132,5 +134,4 @@ func Test_ScanFS(t *testing.T) {
 			assert.Equal(t, tc.expectedIDs, ids)
 		})
 	}
-
 }

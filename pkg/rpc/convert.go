@@ -86,6 +86,7 @@ func ConvertToRPCPkgIdentifier(pkg ftypes.PkgIdentifier) *common.PkgIdentifier {
 		p = pkg.PURL.String()
 	}
 	return &common.PkgIdentifier{
+		Uid:    pkg.UID,
 		Purl:   p,
 		BomRef: pkg.BOMRef,
 	}
@@ -236,7 +237,8 @@ func ConvertFromRPCPkgIdentifier(pkg *common.PkgIdentifier) ftypes.PkgIdentifier
 	}
 
 	pkgID := ftypes.PkgIdentifier{
-		BOMRef: pkg.BomRef,
+		UID:    pkg.GetUid(),
+		BOMRef: pkg.GetBomRef(),
 	}
 
 	if pkg.Purl != "" {
@@ -434,6 +436,7 @@ func ConvertFromRPCDetectedLicenses(rpcLicenses []*common.DetectedLicense) []typ
 			PkgName:    l.PkgName,
 			FilePath:   l.FilePath,
 			Name:       l.Name,
+			Text:       l.Text,
 			Confidence: float64(l.Confidence),
 			Link:       l.Link,
 		})
@@ -738,9 +741,9 @@ func ConvertFromRPCApplications(rpcApps []*common.Application) []ftypes.Applicat
 	var apps []ftypes.Application
 	for _, rpcApp := range rpcApps {
 		apps = append(apps, ftypes.Application{
-			Type:      ftypes.LangType(rpcApp.Type),
-			FilePath:  rpcApp.FilePath,
-			Libraries: ConvertFromRPCPkgs(rpcApp.Libraries),
+			Type:     ftypes.LangType(rpcApp.Type),
+			FilePath: rpcApp.FilePath,
+			Packages: ConvertFromRPCPkgs(rpcApp.Packages),
 		})
 	}
 	return apps
@@ -863,9 +866,9 @@ func ConvertToRPCPutBlobRequest(diffID string, blobInfo ftypes.BlobInfo) *cache.
 	var applications []*common.Application
 	for _, app := range blobInfo.Applications {
 		applications = append(applications, &common.Application{
-			Type:      string(app.Type),
-			FilePath:  app.FilePath,
-			Libraries: ConvertToRPCPkgs(app.Libraries),
+			Type:     string(app.Type),
+			FilePath: app.FilePath,
+			Packages: ConvertToRPCPkgs(app.Packages),
 		})
 	}
 
@@ -981,6 +984,7 @@ func ConvertToRPCLicenses(licenses []types.DetectedLicense) []*common.DetectedLi
 			PkgName:    l.PkgName,
 			FilePath:   l.FilePath,
 			Name:       l.Name,
+			Text:       l.Text,
 			Confidence: float32(l.Confidence),
 			Link:       l.Link,
 		})

@@ -6,23 +6,17 @@ import (
 
 	"github.com/aquasecurity/trivy-db/pkg/metadata"
 	javadb "github.com/aquasecurity/trivy-java-db/pkg/db"
+	"github.com/aquasecurity/trivy/pkg/db"
 	"github.com/aquasecurity/trivy/pkg/log"
 	"github.com/aquasecurity/trivy/pkg/policy"
+	"github.com/aquasecurity/trivy/pkg/version/app"
 )
-
-var (
-	ver = "dev"
-)
-
-func AppVersion() string {
-	return ver
-}
 
 type VersionInfo struct {
 	Version         string             `json:",omitempty"`
 	VulnerabilityDB *metadata.Metadata `json:",omitempty"`
 	JavaDB          *metadata.Metadata `json:",omitempty"`
-	PolicyBundle    *policy.Metadata   `json:",omitempty"`
+	CheckBundle     *policy.Metadata   `json:",omitempty"`
 }
 
 func formatDBMetadata(title string, meta metadata.Metadata) string {
@@ -42,8 +36,8 @@ func (v *VersionInfo) String() string {
 	if v.JavaDB != nil {
 		output += formatDBMetadata("Java DB", *v.JavaDB)
 	}
-	if v.PolicyBundle != nil {
-		output += v.PolicyBundle.String()
+	if v.CheckBundle != nil {
+		output += v.CheckBundle.String()
 	}
 	return output
 }
@@ -52,7 +46,7 @@ func NewVersionInfo(cacheDir string) VersionInfo {
 	var dbMeta *metadata.Metadata
 	var javadbMeta *metadata.Metadata
 
-	mc := metadata.NewClient(cacheDir)
+	mc := metadata.NewClient(db.Dir(cacheDir))
 	meta, err := mc.Get()
 	if err != nil {
 		log.Debug("Failed to get DB metadata", log.Err(err))
@@ -99,9 +93,9 @@ func NewVersionInfo(cacheDir string) VersionInfo {
 	}
 
 	return VersionInfo{
-		Version:         ver,
+		Version:         app.Version(),
 		VulnerabilityDB: dbMeta,
 		JavaDB:          javadbMeta,
-		PolicyBundle:    pbMeta,
+		CheckBundle:     pbMeta,
 	}
 }

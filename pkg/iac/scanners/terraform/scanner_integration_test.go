@@ -1,15 +1,14 @@
 package terraform
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/aquasecurity/trivy/internal/testutil"
 	"github.com/aquasecurity/trivy/pkg/iac/scanners/options"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_ScanRemoteModule(t *testing.T) {
@@ -44,10 +43,7 @@ deny[res] {
 }`,
 	})
 
-	debugLog := bytes.NewBuffer([]byte{})
-
 	scanner := New(
-		options.ScannerWithDebug(debugLog),
 		options.ScannerWithPolicyFilesystem(fs),
 		options.ScannerWithPolicyDirs("rules"),
 		options.ScannerWithEmbeddedPolicies(false),
@@ -61,10 +57,6 @@ deny[res] {
 	require.NoError(t, err)
 
 	assert.Len(t, results.GetPassed(), 1)
-
-	if t.Failed() {
-		fmt.Printf("Debug logs:\n%s\n", debugLog.String())
-	}
 }
 
 func Test_ScanChildUseRemoteModule(t *testing.T) {
@@ -108,10 +100,7 @@ deny[res] {
 }`,
 	})
 
-	debugLog := bytes.NewBuffer([]byte{})
-
 	scanner := New(
-		options.ScannerWithDebug(debugLog),
 		options.ScannerWithPolicyFilesystem(fs),
 		options.ScannerWithPolicyDirs("rules"),
 		options.ScannerWithEmbeddedPolicies(false),
@@ -125,10 +114,6 @@ deny[res] {
 	require.NoError(t, err)
 
 	assert.Len(t, results.GetPassed(), 1)
-
-	if t.Failed() {
-		fmt.Printf("Debug logs:\n%s\n", debugLog.String())
-	}
 }
 
 func Test_OptionWithSkipDownloaded(t *testing.T) {

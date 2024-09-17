@@ -5,15 +5,15 @@ package integration
 
 import (
 	"context"
-	"github.com/aquasecurity/trivy/pkg/types"
 	"io"
 	"os"
 	"strings"
 	"testing"
 
-	api "github.com/docker/docker/api/types"
+	"github.com/aquasecurity/trivy/pkg/types"
+
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -193,6 +193,12 @@ func TestDockerEngine(t *testing.T) {
 			golden:   "testdata/opensuse-leap-151.json.golden",
 		},
 		{
+			name:     "opensuse tumbleweed",
+			imageTag: "ghcr.io/aquasecurity/trivy-test-images:opensuse-tumbleweed",
+			input:    "testdata/fixtures/images/opensuse-tumbleweed.tar.gz",
+			golden:   "testdata/opensuse-tumbleweed.json.golden",
+		},
+		{
 			name:     "photon 3.0",
 			imageTag: "ghcr.io/aquasecurity/trivy-test-images:photon-30",
 			input:    "testdata/fixtures/images/photon-30.tar.gz",
@@ -237,7 +243,7 @@ func TestDockerEngine(t *testing.T) {
 				require.NoError(t, err, tt.name)
 
 				// ensure image doesnt already exists
-				_, _ = cli.ImageRemove(ctx, tt.input, api.ImageRemoveOptions{
+				_, _ = cli.ImageRemove(ctx, tt.input, image.RemoveOptions{
 					Force:         true,
 					PruneChildren: true,
 				})
@@ -256,11 +262,11 @@ func TestDockerEngine(t *testing.T) {
 
 				// cleanup
 				t.Cleanup(func() {
-					_, _ = cli.ImageRemove(ctx, tt.input, api.ImageRemoveOptions{
+					_, _ = cli.ImageRemove(ctx, tt.input, image.RemoveOptions{
 						Force:         true,
 						PruneChildren: true,
 					})
-					_, _ = cli.ImageRemove(ctx, tt.imageTag, api.ImageRemoveOptions{
+					_, _ = cli.ImageRemove(ctx, tt.imageTag, image.RemoveOptions{
 						Force:         true,
 						PruneChildren: true,
 					})
@@ -298,13 +304,20 @@ func TestDockerEngine(t *testing.T) {
 			if len(tt.ignoreIDs) != 0 {
 				trivyIgnore := ".trivyignore"
 				err = os.WriteFile(trivyIgnore, []byte(strings.Join(tt.ignoreIDs, "\n")), 0444)
-				assert.NoError(t, err, "failed to write .trivyignore")
+				require.NoError(t, err, "failed to write .trivyignore")
 				defer os.Remove(trivyIgnore)
 			}
 			osArgs = append(osArgs, tt.input)
 
 			// Run Trivy
-			runTest(t, osArgs, tt.golden, "", types.FormatJSON, runOptions{wantErr: tt.wantErr})
+			runTest(t, osArgs, tt.golden, "", types.FormatJSON, runOptions{
+				wantErr: tt.wantErr,
+				// Container field was removed in Docker Engine v26.0
+				// cf. https://github.com/docker/cli/blob/v26.1.3/docs/deprecated.md#container-and-containerconfig-fields-in-image-inspect
+				override: overrideFuncs(overrideUID, func(t *testing.T, want, _ *types.Report) {
+					want.Metadata.ImageConfig.Container = ""
+				}),
+			})
 		})
 	}
 }

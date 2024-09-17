@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,37 +13,22 @@ import (
 	"gopkg.in/yaml.v3"
 	kyaml "sigs.k8s.io/yaml"
 
-	"github.com/aquasecurity/trivy/pkg/iac/debug"
-	"github.com/aquasecurity/trivy/pkg/iac/detection"
-	"github.com/aquasecurity/trivy/pkg/iac/scanners/options"
+	"github.com/aquasecurity/trivy/pkg/log"
 )
 
-var _ options.ConfigurableParser = (*Parser)(nil)
-
 type Parser struct {
-	debug        debug.Logger
-	skipRequired bool
-}
-
-func (p *Parser) SetDebugWriter(writer io.Writer) {
-	p.debug = debug.New(writer, "kubernetes", "parser")
-}
-
-func (p *Parser) SetSkipRequiredCheck(b bool) {
-	p.skipRequired = b
+	logger *log.Logger
 }
 
 // New creates a new K8s parser
-func New(opts ...options.ParserOption) *Parser {
-	p := &Parser{}
-	for _, option := range opts {
-		option(p)
+func New() *Parser {
+	return &Parser{
+		logger: log.WithPrefix("k8s parser"),
 	}
-	return p
 }
 
-func (p *Parser) ParseFS(ctx context.Context, target fs.FS, path string) (map[string][]interface{}, error) {
-	files := make(map[string][]interface{})
+func (p *Parser) ParseFS(ctx context.Context, target fs.FS, path string) (map[string][]any, error) {
+	files := make(map[string][]any)
 	if err := fs.WalkDir(target, filepath.ToSlash(path), func(path string, entry fs.DirEntry, err error) error {
 		select {
 		case <-ctx.Done():
@@ -57,14 +41,13 @@ func (p *Parser) ParseFS(ctx context.Context, target fs.FS, path string) (map[st
 		if entry.IsDir() {
 			return nil
 		}
-		if !p.required(target, path) {
-			return nil
-		}
+
 		parsed, err := p.ParseFile(ctx, target, path)
 		if err != nil {
-			p.debug.Log("Parse error in '%s': %s", path, err)
+			p.logger.Error("Parse error", log.FilePath(path), log.Err(err))
 			return nil
 		}
+
 		files[path] = parsed
 		return nil
 	}); err != nil {
@@ -74,7 +57,7 @@ func (p *Parser) ParseFS(ctx context.Context, target fs.FS, path string) (map[st
 }
 
 // ParseFile parses Kubernetes manifest from the provided filesystem path.
-func (p *Parser) ParseFile(_ context.Context, fsys fs.FS, path string) ([]interface{}, error) {
+func (p *Parser) ParseFile(_ context.Context, fsys fs.FS, path string) ([]any, error) {
 	f, err := fsys.Open(filepath.ToSlash(path))
 	if err != nil {
 		return nil, err
@@ -83,22 +66,7 @@ func (p *Parser) ParseFile(_ context.Context, fsys fs.FS, path string) ([]interf
 	return p.Parse(f, path)
 }
 
-func (p *Parser) required(fsys fs.FS, path string) bool {
-	if p.skipRequired {
-		return true
-	}
-	f, err := fsys.Open(filepath.ToSlash(path))
-	if err != nil {
-		return false
-	}
-	defer func() { _ = f.Close() }()
-	if data, err := io.ReadAll(f); err == nil {
-		return detection.IsType(path, bytes.NewReader(data), detection.FileTypeKubernetes)
-	}
-	return false
-}
-
-func (p *Parser) Parse(r io.Reader, path string) ([]interface{}, error) {
+func (p *Parser) Parse(r io.Reader, path string) ([]any, error) {
 
 	contents, err := io.ReadAll(r)
 	if err != nil {
@@ -110,7 +78,7 @@ func (p *Parser) Parse(r io.Reader, path string) ([]interface{}, error) {
 	}
 
 	if strings.TrimSpace(string(contents))[0] == '{' {
-		var target interface{}
+		var target any
 		if err := json.Unmarshal(contents, &target); err != nil {
 			return nil, err
 		}
@@ -121,7 +89,7 @@ func (p *Parser) Parse(r io.Reader, path string) ([]interface{}, error) {
 		}
 	}
 
-	var results []interface{}
+	var results []any
 
 	re := regexp.MustCompile(`(?m:^---\r?\n)`)
 	pos := 0
