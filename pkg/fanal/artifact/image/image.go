@@ -6,17 +6,17 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"golang.org/x/xerrors"
 
+	"github.com/aquasecurity/trivy/pkg/cache"
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
-	"github.com/aquasecurity/trivy/pkg/fanal/cache"
 	"github.com/aquasecurity/trivy/pkg/fanal/handler"
 	"github.com/aquasecurity/trivy/pkg/fanal/image"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
@@ -73,16 +73,16 @@ func NewArtifact(img types.Image, c cache.ArtifactCache, opt artifact.Option) (a
 	}, nil
 }
 
-func (a Artifact) Inspect(ctx context.Context) (types.ArtifactReference, error) {
+func (a Artifact) Inspect(ctx context.Context) (artifact.Reference, error) {
 	imageID, err := a.image.ID()
 	if err != nil {
-		return types.ArtifactReference{}, xerrors.Errorf("unable to get the image ID: %w", err)
+		return artifact.Reference{}, xerrors.Errorf("unable to get the image ID: %w", err)
 	}
 	a.logger.Debug("Detected image ID", log.String("image_id", imageID))
 
 	configFile, err := a.image.ConfigFile()
 	if err != nil {
-		return types.ArtifactReference{}, xerrors.Errorf("unable to get the image's config file: %w", err)
+		return artifact.Reference{}, xerrors.Errorf("unable to get the image's config file: %w", err)
 	}
 
 	diffIDs := a.diffIDs(configFile)
@@ -94,7 +94,7 @@ func (a Artifact) Inspect(ctx context.Context) (types.ArtifactReference, error) 
 		return res, nil
 	} else if !errors.Is(err, errNoSBOMFound) {
 		// Fail on unexpected error, otherwise it falls into the usual scanning.
-		return types.ArtifactReference{}, xerrors.Errorf("remote SBOM fetching error: %w", err)
+		return artifact.Reference{}, xerrors.Errorf("remote SBOM fetching error: %w", err)
 	}
 
 	// Try to detect base layers.
@@ -104,7 +104,7 @@ func (a Artifact) Inspect(ctx context.Context) (types.ArtifactReference, error) 
 	// Convert image ID and layer IDs to cache keys
 	imageKey, layerKeys, err := a.calcCacheKeys(imageID, diffIDs)
 	if err != nil {
-		return types.ArtifactReference{}, err
+		return artifact.Reference{}, err
 	}
 
 	// Parse histories and extract a list of "created_by"
@@ -112,7 +112,7 @@ func (a Artifact) Inspect(ctx context.Context) (types.ArtifactReference, error) 
 
 	missingImage, missingLayers, err := a.cache.MissingBlobs(imageKey, layerKeys)
 	if err != nil {
-		return types.ArtifactReference{}, xerrors.Errorf("unable to get missing layers: %w", err)
+		return artifact.Reference{}, xerrors.Errorf("unable to get missing layers: %w", err)
 	}
 
 	missingImageKey := imageKey
@@ -123,15 +123,15 @@ func (a Artifact) Inspect(ctx context.Context) (types.ArtifactReference, error) 
 	}
 
 	if err = a.inspect(ctx, missingImageKey, missingLayers, baseDiffIDs, layerKeyMap, configFile); err != nil {
-		return types.ArtifactReference{}, xerrors.Errorf("analyze error: %w", err)
+		return artifact.Reference{}, xerrors.Errorf("analyze error: %w", err)
 	}
 
-	return types.ArtifactReference{
+	return artifact.Reference{
 		Name:    a.image.Name(),
-		Type:    types.ArtifactContainerImage,
+		Type:    artifact.TypeContainerImage,
 		ID:      imageKey,
 		BlobIDs: layerKeys,
-		ImageMetadata: types.ImageMetadata{
+		ImageMetadata: artifact.ImageMetadata{
 			ID:          imageID,
 			DiffIDs:     diffIDs,
 			RepoTags:    a.image.RepoTags(),
@@ -141,7 +141,7 @@ func (a Artifact) Inspect(ctx context.Context) (types.ArtifactReference, error) 
 	}, nil
 }
 
-func (Artifact) Clean(_ types.ArtifactReference) error {
+func (Artifact) Clean(_ artifact.Reference) error {
 	return nil
 }
 

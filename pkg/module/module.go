@@ -8,13 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sync"
 
 	"github.com/samber/lo"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	wasi "github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
-	"golang.org/x/exp/slices"
 	"golang.org/x/xerrors"
 
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
@@ -445,7 +445,7 @@ func (m *wasmModule) Required(filePath string, _ os.FileInfo) bool {
 
 func (m *wasmModule) Analyze(ctx context.Context, input analyzer.AnalysisInput) (*analyzer.AnalysisResult, error) {
 	filePath := "/" + filepath.ToSlash(input.FilePath)
-	log.Debug("Module analyzing...", log.String("module", m.name), log.String("file_path", filePath))
+	log.Debug("Module analyzing...", log.String("module", m.name), log.FilePath(filePath))
 
 	// Wasm module instances are not Goroutine safe, so we take look here since Analyze might be called concurrently.
 	// TODO: This is temporary solution and we could improve the Analyze performance by having module instance pool.
@@ -481,15 +481,15 @@ func (m *wasmModule) Analyze(ctx context.Context, input analyzer.AnalysisInput) 
 // e.g. Remove a vulnerability, change severity, etc.
 func (m *wasmModule) PostScan(ctx context.Context, results types.Results) (types.Results, error) {
 	// Find custom resources
-	var custom serialize.Result
+	var custom types.Result
 	for _, result := range results {
 		if result.Class == types.ClassCustom {
-			custom = serialize.Result(result)
+			custom = result
 			break
 		}
 	}
 
-	arg := serialize.Results{custom}
+	arg := types.Results{custom}
 	switch m.postScanSpec.Action {
 	case tapi.ActionUpdate, tapi.ActionDelete:
 		// Pass the relevant results to the module
@@ -529,8 +529,8 @@ func (m *wasmModule) PostScan(ctx context.Context, results types.Results) (types
 	return results, nil
 }
 
-func findIDs(ids []string, results types.Results) serialize.Results {
-	var filtered serialize.Results
+func findIDs(ids []string, results types.Results) types.Results {
+	var filtered types.Results
 	for _, result := range results {
 		if result.Class == types.ClassCustom {
 			continue
@@ -542,7 +542,7 @@ func findIDs(ids []string, results types.Results) serialize.Results {
 			return slices.Contains(ids, m.ID)
 		})
 		if len(vulns) > 0 || len(misconfs) > 0 {
-			filtered = append(filtered, serialize.Result{
+			filtered = append(filtered, types.Result{
 				Target:            result.Target,
 				Class:             result.Class,
 				Type:              result.Type,

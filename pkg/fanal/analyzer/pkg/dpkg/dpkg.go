@@ -11,12 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
 	debVersion "github.com/knqyf263/go-deb-version"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"golang.org/x/xerrors"
 
 	"github.com/aquasecurity/trivy/pkg/digest"
@@ -61,7 +61,7 @@ func (a dpkgAnalyzer) PostAnalyze(_ context.Context, input analyzer.PostAnalysis
 	// parse `available` file to get digest for packages
 	digests, err := a.parseDpkgAvailable(input.FS)
 	if err != nil {
-		a.logger.Debug("Unable to parse the available file", log.String("file", availableFile), log.Err(err))
+		a.logger.Debug("Unable to parse the available file", log.FilePath(availableFile), log.Err(err))
 	}
 
 	required := func(path string, d fs.DirEntry) bool {
@@ -115,31 +115,42 @@ func (a dpkgAnalyzer) PostAnalyze(_ context.Context, input analyzer.PostAnalysis
 
 // parseDpkgInfoList parses /var/lib/dpkg/info/*.list
 func (a dpkgAnalyzer) parseDpkgInfoList(scanner *bufio.Scanner) ([]string, error) {
-	var installedFiles []string
-	var previous string
+	var (
+		allLines       []string
+		installedFiles []string
+		previous       string
+	)
+
 	for scanner.Scan() {
 		current := scanner.Text()
 		if current == "/." {
 			continue
 		}
+		allLines = append(allLines, current)
+	}
 
-		// Add the file if it is not directory.
-		// e.g.
-		//  /usr/sbin
-		//  /usr/sbin/tarcat
-		//
-		// In the above case, we should take only /usr/sbin/tarcat since /usr/sbin is a directory
+	if err := scanner.Err(); err != nil {
+		return nil, xerrors.Errorf("scan error: %w", err)
+	}
+
+	// Add the file if it is not directory.
+	// e.g.
+	//  /usr/sbin
+	//  /usr/sbin/tarcat
+	//
+	// In the above case, we should take only /usr/sbin/tarcat since /usr/sbin is a directory
+	// sort first,see here:https://github.com/aquasecurity/trivy/discussions/6543
+	sort.Strings(allLines)
+	for _, current := range allLines {
 		if !strings.HasPrefix(current, previous+"/") {
 			installedFiles = append(installedFiles, previous)
 		}
 		previous = current
 	}
 
-	// Add the last file
-	installedFiles = append(installedFiles, previous)
-
-	if err := scanner.Err(); err != nil {
-		return nil, xerrors.Errorf("scan error: %w", err)
+	// // Add the last file
+	if previous != "" && !strings.HasSuffix(previous, "/") {
+		installedFiles = append(installedFiles, previous)
 	}
 
 	return installedFiles, nil
@@ -158,7 +169,7 @@ func (a dpkgAnalyzer) parseDpkgAvailable(fsys fs.FS) (map[string]digest.Digest, 
 	for scanner.Scan() {
 		header, err := scanner.Header()
 		if !errors.Is(err, io.EOF) && err != nil {
-			a.logger.Warn("Parse error", log.String("file", availableFile), log.Err(err))
+			a.logger.Warn("Parse error", log.FilePath(availableFile), log.Err(err))
 			continue
 		}
 		name, version, checksum := header.Get("Package"), header.Get("Version"), header.Get("SHA256")
@@ -184,7 +195,7 @@ func (a dpkgAnalyzer) parseDpkgStatus(filePath string, r io.Reader, digests map[
 	for scanner.Scan() {
 		header, err := scanner.Header()
 		if !errors.Is(err, io.EOF) && err != nil {
-			a.logger.Warn("Parse error", log.String("file", filePath), log.Err(err))
+			a.logger.Warn("Parse error", log.FilePath(filePath), log.Err(err))
 			continue
 		}
 

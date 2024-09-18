@@ -8,13 +8,11 @@ import (
 )
 
 type ConfigurableScanner interface {
-	SetDebugWriter(io.Writer)
 	SetTraceWriter(io.Writer)
 	SetPerResultTracingEnabled(bool)
 	SetPolicyDirs(...string)
 	SetDataDirs(...string)
 	SetPolicyNamespaces(...string)
-	SetSkipRequiredCheck(bool)
 	SetPolicyReaders([]io.Reader)
 	SetPolicyFilesystem(fs.FS)
 	SetDataFilesystem(fs.FS)
@@ -24,6 +22,8 @@ type ConfigurableScanner interface {
 	SetRegoOnly(regoOnly bool)
 	SetRegoErrorLimit(limit int)
 	SetUseEmbeddedLibraries(bool)
+	SetIncludeDeprecatedChecks(bool)
+	SetCustomSchemas(map[string][]byte)
 }
 
 type ScannerOption func(s ConfigurableScanner)
@@ -46,13 +46,6 @@ func ScannerWithPolicyReader(readers ...io.Reader) ScannerOption {
 	}
 }
 
-// ScannerWithDebug specifies an io.Writer for debug logs - if not set, they are discarded
-func ScannerWithDebug(w io.Writer) ScannerOption {
-	return func(s ConfigurableScanner) {
-		s.SetDebugWriter(w)
-	}
-}
-
 func ScannerWithEmbeddedPolicies(embedded bool) ScannerOption {
 	return func(s ConfigurableScanner) {
 		s.SetUseEmbeddedPolicies(embedded)
@@ -62,6 +55,12 @@ func ScannerWithEmbeddedPolicies(embedded bool) ScannerOption {
 func ScannerWithEmbeddedLibraries(enabled bool) ScannerOption {
 	return func(s ConfigurableScanner) {
 		s.SetUseEmbeddedLibraries(enabled)
+	}
+}
+
+func ScannerWithIncludeDeprecatedChecks(enabled bool) ScannerOption {
+	return func(s ConfigurableScanner) {
+		s.SetIncludeDeprecatedChecks(enabled)
 	}
 }
 
@@ -97,12 +96,6 @@ func ScannerWithPolicyNamespaces(namespaces ...string) ScannerOption {
 	}
 }
 
-func ScannerWithSkipRequiredCheck(skip bool) ScannerOption {
-	return func(s ConfigurableScanner) {
-		s.SetSkipRequiredCheck(skip)
-	}
-}
-
 func ScannerWithPolicyFilesystem(f fs.FS) ScannerOption {
 	return func(s ConfigurableScanner) {
 		s.SetPolicyFilesystem(f)
@@ -124,5 +117,11 @@ func ScannerWithRegoOnly(regoOnly bool) ScannerOption {
 func ScannerWithRegoErrorLimits(limit int) ScannerOption {
 	return func(s ConfigurableScanner) {
 		s.SetRegoErrorLimit(limit)
+	}
+}
+
+func ScannerWithCustomSchemas(schemas map[string][]byte) ScannerOption {
+	return func(s ConfigurableScanner) {
+		s.SetCustomSchemas(schemas)
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/aquasecurity/trivy-db/pkg/db"
 	dbTypes "github.com/aquasecurity/trivy-db/pkg/types"
 	"github.com/aquasecurity/trivy-db/pkg/vulnsrc/vulnerability"
-	"github.com/aquasecurity/trivy/pkg/dbtest"
+	"github.com/aquasecurity/trivy/internal/dbtest"
 	"github.com/aquasecurity/trivy/pkg/detector/ospkg/chainguard"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/types"
@@ -204,7 +204,7 @@ func TestScanner_Detect(t *testing.T) {
 			sort.Slice(got, func(i, j int) bool {
 				return got[i].VulnerabilityID < got[j].VulnerabilityID
 			})
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}

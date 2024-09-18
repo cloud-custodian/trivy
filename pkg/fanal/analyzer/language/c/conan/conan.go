@@ -11,10 +11,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/samber/lo"
 	"golang.org/x/xerrors"
 
 	"github.com/aquasecurity/trivy/pkg/dependency/parser/c/conan"
-	godeptypes "github.com/aquasecurity/trivy/pkg/dependency/types"
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer"
 	"github.com/aquasecurity/trivy/pkg/fanal/analyzer/language"
 	"github.com/aquasecurity/trivy/pkg/fanal/types"
@@ -33,7 +33,7 @@ const (
 // conanLockAnalyzer analyzes conan.lock
 type conanLockAnalyzer struct {
 	logger *log.Logger
-	parser godeptypes.Parser
+	parser language.Parser
 }
 
 func newConanLockAnalyzer(_ analyzer.AnalyzerOptions) (analyzer.PostAnalyzer, error) {
@@ -45,7 +45,8 @@ func newConanLockAnalyzer(_ analyzer.AnalyzerOptions) (analyzer.PostAnalyzer, er
 
 func (a conanLockAnalyzer) PostAnalyze(_ context.Context, input analyzer.PostAnalysisInput) (*analyzer.AnalysisResult, error) {
 	required := func(filePath string, d fs.DirEntry) bool {
-		return a.Required(filePath, nil)
+		// we need all file got from `a.Required` function (conan.lock files) and from file-patterns.
+		return true
 	}
 
 	licenses, err := licensesFromCache()
@@ -65,15 +66,15 @@ func (a conanLockAnalyzer) PostAnalyze(_ context.Context, input analyzer.PostAna
 		}
 
 		// Fill licenses
-		for i, lib := range app.Libraries {
+		for i, lib := range app.Packages {
 			if license, ok := licenses[lib.Name]; ok {
-				app.Libraries[i].Licenses = []string{
+				app.Packages[i].Licenses = []string{
 					license,
 				}
 			}
 		}
 
-		sort.Sort(app.Libraries)
+		sort.Sort(app.Packages)
 		apps = append(apps, *app)
 		return nil
 	}); err != nil {
@@ -86,19 +87,13 @@ func (a conanLockAnalyzer) PostAnalyze(_ context.Context, input analyzer.PostAna
 }
 
 func licensesFromCache() (map[string]string, error) {
+	cacheDir, err := detectCacheDir()
+	if err != nil {
+		return nil, err
+	}
+
 	required := func(filePath string, d fs.DirEntry) bool {
 		return filepath.Base(filePath) == "conanfile.py"
-	}
-
-	// cf. https://docs.conan.io/1/mastering/custom_cache.html
-	cacheDir := os.Getenv("CONAN_USER_HOME")
-	if cacheDir == "" {
-		cacheDir, _ = os.UserHomeDir()
-	}
-	cacheDir = path.Join(cacheDir, ".conan", "data")
-
-	if !fsutils.DirExists(cacheDir) {
-		return nil, xerrors.Errorf("the Conan cache directory (%s) was not found.", cacheDir)
 	}
 
 	licenses := make(map[string]string)
@@ -153,6 +148,36 @@ func detectAttribute(attributeName, line string) string {
 	}
 
 	return ""
+}
+
+func detectCacheDir() (string, error) {
+	home, _ := os.UserHomeDir()
+	dirs := []string{
+		// conan v2 uses `CONAN_HOME` env
+		// cf. https://docs.conan.io/2/reference/environment.html#conan-home
+		// `.conan2` dir is omitted for this env
+		lo.Ternary(os.Getenv("CONAN_HOME") != "", path.Join(os.Getenv("CONAN_HOME"), "p"), ""),
+		// conan v1 uses `CONAN_USER_HOME` env
+		// cf. https://docs.conan.io/en/1.64/reference/env_vars.html#conan-user-home
+		// `.conan` dir is used for this env
+		lo.Ternary(os.Getenv("CONAN_USER_HOME") != "", path.Join(os.Getenv("CONAN_USER_HOME"), ".conan", "data"), ""),
+		// `<username>/.conan2` is default directory for conan v2
+		// cf. https://docs.conan.io/2/reference/environment.html#conan-home
+		path.Join(home, ".conan2", "p"),
+		// `<username>/.conan` is default directory for conan v1
+		// cf. https://docs.conan.io/1/mastering/custom_cache.html
+		path.Join(home, ".conan", "data"),
+	}
+
+	for _, dir := range dirs {
+		if dir != "" {
+			if fsutils.DirExists(dir) {
+				return dir, nil
+			}
+		}
+	}
+
+	return "", xerrors.Errorf("the Conan cache directory was not found.")
 }
 
 func (a conanLockAnalyzer) Required(filePath string, _ os.FileInfo) bool {

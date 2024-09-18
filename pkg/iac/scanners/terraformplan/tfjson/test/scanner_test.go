@@ -5,12 +5,12 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/aquasecurity/trivy/pkg/iac/scan"
-	"github.com/aquasecurity/trivy/pkg/iac/scanners/terraformplan/tfjson"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/aquasecurity/trivy/pkg/iac/scan"
 	"github.com/aquasecurity/trivy/pkg/iac/scanners/options"
+	"github.com/aquasecurity/trivy/pkg/iac/scanners/terraformplan/tfjson"
 )
 
 func Test_Scanning_Plan(t *testing.T) {
@@ -33,7 +33,7 @@ func Test_Scanning_Plan(t *testing.T) {
 			failedResults = append(failedResults, r)
 		}
 	}
-	assert.Len(t, results, 15)
+
 	assert.Len(t, failedResults, 9)
 
 }

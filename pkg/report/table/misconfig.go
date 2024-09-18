@@ -50,6 +50,11 @@ func NewMisconfigRenderer(result types.Result, severities []dbTypes.Severity, tr
 }
 
 func (r *misconfigRenderer) Render() string {
+	// Trivy doesn't currently support showing suppressed misconfigs
+	// So just skip this result
+	if len(r.result.Misconfigurations) == 0 {
+		return ""
+	}
 	target := fmt.Sprintf("%s (%s)", r.result.Target, r.result.Type)
 	RenderTarget(r.w, target, r.ansi)
 
@@ -81,7 +86,7 @@ func (r *misconfigRenderer) countSeverities() map[string]int {
 	return severityCount
 }
 
-func (r *misconfigRenderer) printf(format string, args ...interface{}) {
+func (r *misconfigRenderer) printf(format string, args ...any) {
 	// nolint
 	_ = tml.Fprintf(r.w, format, args...)
 }
