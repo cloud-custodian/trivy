@@ -1811,7 +1811,6 @@ func TestDynamicWithIterator(t *testing.T) {
 	assert.True(t, attr.Value().True())
 }
 
-
 func Test_AWSRegionNameDefined(t *testing.T) {
 
 	fs := testutil.CreateFS(t, map[string]string{
@@ -1904,7 +1903,6 @@ untyped = "zzz"
 	parser := New(fs, "",
 		OptionStopOnHCLError(true),
 		OptionWithTFVarsPaths("v.tfvars"),
-		options.ParserWithDebug(os.Stderr),
 	)
 
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
