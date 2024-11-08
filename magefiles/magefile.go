@@ -16,6 +16,8 @@ import (
 	"github.com/magefile/mage/sh"
 	"github.com/magefile/mage/target"
 
+	//mage:import rpm
+	rpm "github.com/aquasecurity/trivy/pkg/fanal/analyzer/pkg/rpm/testdata"
 	// Trivy packages should not be imported in Mage (see https://github.com/aquasecurity/trivy/pull/4242),
 	// but this package doesn't have so many dependencies, and Mage is still fast.
 	"github.com/aquasecurity/trivy/pkg/log"
@@ -75,7 +77,7 @@ func (Tool) Wire() error {
 
 // GolangciLint installs golangci-lint
 func (t Tool) GolangciLint() error {
-	const version = "v1.59.1"
+	const version = "v1.61.0"
 	bin := filepath.Join(GOBIN, "golangci-lint")
 	if exists(bin) && t.matchGolangciLintVersion(bin, version) {
 		return nil
@@ -268,7 +270,7 @@ func compileWasmModules(pattern string) error {
 
 // Unit runs unit tests
 func (t Test) Unit() error {
-	mg.Deps(t.GenerateModules)
+	mg.Deps(t.GenerateModules, rpm.Fixtures)
 	return sh.RunWithV(ENV, "go", "test", "-v", "-short", "-coverprofile=coverage.txt", "-covermode=atomic", "./...")
 }
 
@@ -486,4 +488,11 @@ func (CloudActions) Generate() error {
 // VEX generates a VEX document for Trivy
 func VEX(_ context.Context, dir string) error {
 	return sh.RunWith(ENV, "go", "run", "-tags=mage_vex", "./magefiles/vex.go", "--dir", dir)
+}
+
+type Helm mg.Namespace
+
+// UpdateVersion updates a version for Trivy Helm Chart and creates a PR
+func (Helm) UpdateVersion() error {
+	return sh.RunWith(ENV, "go", "run", "-tags=mage_helm", "./magefiles")
 }
