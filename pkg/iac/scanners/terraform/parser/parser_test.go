@@ -3,6 +3,7 @@ package parser
 import (
 	"bytes"
 	"context"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -614,7 +615,7 @@ resource "aws_s3_bucket" "this" {
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "this1" {
 	bucket = aws_s3_bucket.this.id
-  
+
 	rule {
 	  apply_server_side_encryption_by_default {
 		kms_master_key_id = aws_kms_key.key1.arn
@@ -625,7 +626,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this1" {
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "this2" {
 	bucket = aws_s3_bucket.this.id
-  
+
 	rule {
 	  apply_server_side_encryption_by_default {
 		kms_master_key_id = aws_kms_key.key2.arn
@@ -2104,4 +2105,156 @@ resource "test" "values" {
 	bad_attr_2 := resources[0].GetAttribute("p")
 	require.NotNil(t, bad_attr_2)
 	assert.Nil(t, bad_attr_2.GetRawValue())
+}
+
+func TestLoadChildModulesFromLocalCache(t *testing.T) {
+	var buf bytes.Buffer
+	slog.SetDefault(slog.New(log.NewHandler(&buf, &log.Options{Level: log.LevelDebug})))
+
+	fsys := fstest.MapFS{
+		"main.tf": &fstest.MapFile{Data: []byte(`module "level_1" {
+  source = "./modules/level_1"
+}`)},
+		"modules/level_1/main.tf": &fstest.MapFile{Data: []byte(`module "level_2" {
+  source  = "../level_2"
+}`)},
+		"modules/level_2/main.tf": &fstest.MapFile{Data: []byte(`module "level_3" {
+  count = 2
+  source  = "../level_3"
+}`)},
+		"modules/level_3/main.tf": &fstest.MapFile{Data: []byte(`resource "foo" "bar" {}`)},
+		".terraform/modules/modules.json": &fstest.MapFile{Data: []byte(`{
+    "Modules": [
+        { "Key": "", "Source": "", "Dir": "." },
+        {
+            "Key": "level_1",
+            "Source": "./modules/level_1",
+            "Dir": "modules/level_1"
+        },
+        {
+            "Key": "level_1.level_2",
+            "Source": "../level_2",
+            "Dir": "modules/level_2"
+        },
+        {
+            "Key": "level_1.level_2.level_3",
+            "Source": "../level_3",
+            "Dir": "modules/level_3"
+        }
+    ]
+}`)},
+	}
+
+	parser := New(
+		fsys, "",
+		OptionStopOnHCLError(true),
+	)
+	require.NoError(t, parser.ParseFS(context.TODO(), "."))
+
+	modules, _, err := parser.EvaluateAll(context.TODO())
+	require.NoError(t, err)
+
+	assert.Len(t, modules, 5)
+
+	assert.Contains(t, buf.String(), "Using module from Terraform cache .terraform/modules\tsource=\"./modules/level_1\"")
+	assert.Contains(t, buf.String(), "Using module from Terraform cache .terraform/modules\tsource=\"../level_2\"")
+	assert.Contains(t, buf.String(), "Using module from Terraform cache .terraform/modules\tsource=\"../level_3\"")
+	assert.Contains(t, buf.String(), "Using module from Terraform cache .terraform/modules\tsource=\"../level_3\"")
+}
+
+func TestLogParseErrors(t *testing.T) {
+	var buf bytes.Buffer
+	slog.SetDefault(slog.New(log.NewHandler(&buf, nil)))
+
+	src := `resource "aws-s3-bucket" "name" {
+  bucket = <
+}`
+
+	fsys := fstest.MapFS{
+		"main.tf": &fstest.MapFile{
+			Data: []byte(src),
+		},
+	}
+
+	parser := New(fsys, "")
+	err := parser.ParseFS(context.TODO(), ".")
+	require.NoError(t, err)
+
+	assert.Contains(t, buf.String(), `cause="  bucket = <"`)
+}
+
+func Test_PassingNullToChildModule_DoesNotEraseType(t *testing.T) {
+	tests := []struct {
+		name string
+		fsys fs.FS
+	}{
+		{
+			name: "typed variable",
+			fsys: fstest.MapFS{
+				"main.tf": &fstest.MapFile{Data: []byte(`module "test" {
+  source   = "./modules/test"
+  test_var = null
+}`)},
+				"modules/test/main.tf": &fstest.MapFile{Data: []byte(`variable "test_var" {
+  type    = number
+}
+
+resource "foo" "this" {
+  bar = var.test_var != null ? 1 : 2
+}`)},
+			},
+		},
+		{
+			name: "typed variable with default",
+			fsys: fstest.MapFS{
+				"main.tf": &fstest.MapFile{Data: []byte(`module "test" {
+  source   = "./modules/test"
+  test_var = null
+}`)},
+				"modules/test/main.tf": &fstest.MapFile{Data: []byte(`variable "test_var" {
+  type    = number
+  default = null
+}
+
+resource "foo" "this" {
+  bar = var.test_var != null ? 1 : 2
+}`)},
+			},
+		},
+		{
+			name: "empty variable",
+			fsys: fstest.MapFS{
+				"main.tf": &fstest.MapFile{Data: []byte(`module "test" {
+  source   = "./modules/test"
+  test_var = null
+}`)},
+				"modules/test/main.tf": &fstest.MapFile{Data: []byte(`variable "test_var" {}
+
+resource "foo" "this" {
+  bar = var.test_var != null ? 1 : 2
+}`)},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := New(
+				tt.fsys, "",
+				OptionStopOnHCLError(true),
+			)
+			require.NoError(t, parser.ParseFS(context.TODO(), "."))
+
+			_, err := parser.Load(context.TODO())
+			require.NoError(t, err)
+
+			modules, _, err := parser.EvaluateAll(context.TODO())
+			require.NoError(t, err)
+
+			res := modules.GetResourcesByType("foo")[0]
+			attr := res.GetAttribute("bar")
+			val, _ := attr.Value().AsBigFloat().Int64()
+			assert.Equal(t, int64(2), val)
+		})
+	}
 }
