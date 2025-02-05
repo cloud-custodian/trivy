@@ -3,10 +3,13 @@ package image_test
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/docker/go-units"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/xerrors"
@@ -348,6 +351,7 @@ func TestArtifact_Inspect(t *testing.T) {
 			imagePath: "../../test/testdata/alpine-311.tar.gz",
 			artifactOpt: artifact.Option{
 				LicenseScannerOption: analyzer.LicenseScannerOption{Full: true},
+				ImageOption:          types.ImageOptions{MaxImageSize: units.GB},
 			},
 			missingBlobsExpectation: cache.ArtifactCacheMissingBlobsExpectation{
 				Args: cache.ArtifactCacheMissingBlobsArgs{
@@ -2262,8 +2266,49 @@ func TestArtifact_Inspect(t *testing.T) {
 				assert.ErrorContains(t, err, tt.wantErr, tt.name)
 				return
 			}
+			defer a.Clean(got)
+
 			require.NoError(t, err, tt.name)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestArtifact_InspectWithMaxImageSize(t *testing.T) {
+	randomImage, err := random.Image(1000, 2, random.WithSource(rand.NewSource(0)))
+	require.NoError(t, err)
+
+	img := &fakeImage{Image: randomImage}
+	mockCache := new(cache.MockArtifactCache)
+
+	tests := []struct {
+		name        string
+		artifactOpt artifact.Option
+		wantErr     string
+	}{
+		{
+			name: "compressed image size is larger than the maximum",
+			artifactOpt: artifact.Option{
+				ImageOption: types.ImageOptions{MaxImageSize: units.KB * 1},
+			},
+			wantErr: "compressed image size 2.44kB exceeds maximum allowed size 1kB",
+		},
+		{
+			name: "uncompressed layers size is larger than the maximum",
+			artifactOpt: artifact.Option{
+				ImageOption: types.ImageOptions{MaxImageSize: units.KB * 3},
+			},
+			wantErr: "uncompressed layers size 5.12kB exceeds maximum allowed size 3kB",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			artifact, err := image2.NewArtifact(img, mockCache, tt.artifactOpt)
+			require.NoError(t, err)
+
+			_, err = artifact.Inspect(context.Background())
+			require.ErrorContains(t, err, tt.wantErr)
 		})
 	}
 }

@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 type fakeImage struct {
 	name        string
 	repoDigests []string
-	*fakei.FakeImage
+	v1.Image
 	types.ImageExtension
 }
 
@@ -160,7 +160,7 @@ func TestArtifact_InspectRekorAttestation(t *testing.T) {
 			img := &fakeImage{
 				name:        tt.fields.imageName,
 				repoDigests: tt.fields.repoDigests,
-				FakeImage:   fi,
+				Image:       fi,
 			}
 			a, err := image2.NewArtifact(img, mockCache, tt.artifactOpt)
 			require.NoError(t, err)
@@ -170,6 +170,8 @@ func TestArtifact_InspectRekorAttestation(t *testing.T) {
 				assert.ErrorContains(t, err, tt.wantErr)
 				return
 			}
+			defer a.Clean(got)
+
 			require.NoError(t, err, tt.name)
 			got.BOM = nil
 			assert.Equal(t, tt.want, got)
@@ -302,7 +304,7 @@ func TestArtifact_inspectOCIReferrerSBOM(t *testing.T) {
 			img := &fakeImage{
 				name:        tt.fields.imageName,
 				repoDigests: tt.fields.repoDigests,
-				FakeImage:   fi,
+				Image:       fi,
 			}
 			a, err := image2.NewArtifact(img, mockCache, tt.artifactOpt)
 			require.NoError(t, err)
@@ -312,6 +314,7 @@ func TestArtifact_inspectOCIReferrerSBOM(t *testing.T) {
 				assert.ErrorContains(t, err, tt.wantErr)
 				return
 			}
+			defer a.Clean(got)
 
 			require.NoError(t, err, tt.name)
 			got.BOM = nil
