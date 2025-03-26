@@ -3,6 +3,7 @@ package scanner
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -231,8 +232,9 @@ func (s *Scanner) scanK8sVulns(ctx context.Context, artifactsData []*artifacts.A
 
 	k8sScanner := k8s.NewKubernetesScanner()
 	scanOptions := types.ScanOptions{
-		Scanners: s.opts.Scanners,
-		PkgTypes: s.opts.PkgTypes,
+		Scanners:         s.opts.Scanners,
+		PkgTypes:         s.opts.PkgTypes,
+		PkgRelationships: s.opts.PackageOptions.PkgRelationships,
 	}
 	for _, artifact := range artifactsData {
 		switch artifact.Kind {
@@ -375,7 +377,7 @@ func (s *Scanner) clusterInfoToReportResources(allArtifact []*artifacts.Artifact
 	// Find the first node name to identify AKS cluster
 	var nodeName string
 	if nodeName = s.findNodeName(allArtifact); nodeName == "" {
-		return nil, fmt.Errorf("failed to find node name")
+		return nil, errors.New("failed to find node name")
 	}
 
 	kbom := core.NewBOM(core.Options{

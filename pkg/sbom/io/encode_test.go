@@ -171,6 +171,61 @@ func TestEncoder_Encode(t *testing.T) {
 							},
 						},
 					},
+					{
+						Target: "trivy",
+						Type:   ftypes.GoBinary,
+						Class:  types.ClassLangPkg,
+						Packages: []ftypes.Package{
+							{
+								ID:      "github.com/aquasecurity/trivy@v0.57.1",
+								Name:    "github.com/aquasecurity/trivy",
+								Version: "v0.57.1",
+								Identifier: ftypes.PkgIdentifier{
+									UID: "106fee7e57f0b952",
+									PURL: &packageurl.PackageURL{
+										Type:      packageurl.TypeGolang,
+										Namespace: "github.com/aquasecurity",
+										Name:      "trivy",
+										Version:   "v0.57.1",
+									},
+								},
+								Relationship: ftypes.RelationshipRoot,
+								DependsOn: []string{
+									"github.com/aquasecurity/go-version@v0.0.0-20240603093900-cf8a8d29271d",
+									"stdlib@v1.22.9",
+								},
+							},
+							{
+								ID:      "stdlib@v1.22.9",
+								Name:    "stdlib",
+								Version: "v1.22.9",
+								Identifier: ftypes.PkgIdentifier{
+									UID: "62e7c8aaebd94b1e",
+									PURL: &packageurl.PackageURL{
+										Type:    packageurl.TypeGolang,
+										Name:    "stdlib",
+										Version: "v1.22.9",
+									},
+								},
+								Relationship: ftypes.RelationshipDirect,
+							},
+							{
+								ID:      "github.com/aquasecurity/go-version@v0.0.0-20240603093900-cf8a8d29271d",
+								Name:    "github.com/aquasecurity/go-version",
+								Version: "v0.0.0-20240603093900-cf8a8d29271d",
+								Identifier: ftypes.PkgIdentifier{
+									UID: "350aed171d8ebed5",
+									PURL: &packageurl.PackageURL{
+										Type:      packageurl.TypeGolang,
+										Namespace: "github.com/aquasecurity",
+										Name:      "go-version",
+										Version:   "v0.0.0-20240603093900-cf8a8d29271d",
+									},
+								},
+								Relationship: ftypes.RelationshipUnknown,
+							},
+						},
+					},
 				},
 			},
 			wantComponents: map[uuid.UUID]*core.Component{
@@ -351,6 +406,100 @@ func TestEncoder_Encode(t *testing.T) {
 						BOMRef: "3ff14136-e09f-4df9-80ea-000000000006",
 					},
 				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000007"): {
+					Type: core.TypeApplication,
+					Name: "trivy",
+					Properties: []core.Property{
+						{
+							Name:  core.PropertyClass,
+							Value: "lang-pkgs",
+						},
+						{
+							Name:  core.PropertyType,
+							Value: "gobinary",
+						},
+					},
+					PkgIdentifier: ftypes.PkgIdentifier{
+						BOMRef: "3ff14136-e09f-4df9-80ea-000000000007",
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000008"): {
+					Type:    core.TypeLibrary,
+					Name:    "github.com/aquasecurity/trivy",
+					Version: "v0.57.1",
+					SrcFile: "trivy",
+					Properties: []core.Property{
+						{
+							Name:  core.PropertyPkgID,
+							Value: "github.com/aquasecurity/trivy@v0.57.1",
+						},
+						{
+							Name:  core.PropertyPkgType,
+							Value: "gobinary",
+						},
+					},
+					PkgIdentifier: ftypes.PkgIdentifier{
+						UID: "106fee7e57f0b952",
+						PURL: &packageurl.PackageURL{
+							Type:      packageurl.TypeGolang,
+							Namespace: "github.com/aquasecurity",
+							Name:      "trivy",
+							Version:   "v0.57.1",
+						},
+						BOMRef: "pkg:golang/github.com/aquasecurity/trivy@v0.57.1",
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000009"): {
+					Type:    core.TypeLibrary,
+					Name:    "stdlib",
+					Version: "v1.22.9",
+					SrcFile: "trivy",
+					Properties: []core.Property{
+						{
+							Name:  core.PropertyPkgID,
+							Value: "stdlib@v1.22.9",
+						},
+						{
+							Name:  core.PropertyPkgType,
+							Value: "gobinary",
+						},
+					},
+					PkgIdentifier: ftypes.PkgIdentifier{
+						UID: "62e7c8aaebd94b1e",
+						PURL: &packageurl.PackageURL{
+							Type:    packageurl.TypeGolang,
+							Name:    "stdlib",
+							Version: "v1.22.9",
+						},
+						BOMRef: "pkg:golang/stdlib@v1.22.9",
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000010"): {
+					Type:    core.TypeLibrary,
+					Name:    "github.com/aquasecurity/go-version",
+					Version: "v0.0.0-20240603093900-cf8a8d29271d",
+					SrcFile: "trivy",
+					Properties: []core.Property{
+						{
+							Name:  core.PropertyPkgID,
+							Value: "github.com/aquasecurity/go-version@v0.0.0-20240603093900-cf8a8d29271d",
+						},
+						{
+							Name:  core.PropertyPkgType,
+							Value: "gobinary",
+						},
+					},
+					PkgIdentifier: ftypes.PkgIdentifier{
+						UID: "350aed171d8ebed5",
+						PURL: &packageurl.PackageURL{
+							Type:      packageurl.TypeGolang,
+							Namespace: "github.com/aquasecurity",
+							Name:      "go-version",
+							Version:   "v0.0.0-20240603093900-cf8a8d29271d",
+						},
+						BOMRef: "pkg:golang/github.com/aquasecurity/go-version@v0.0.0-20240603093900-cf8a8d29271d",
+					},
+				},
 			},
 			wantRels: map[uuid.UUID][]core.Relationship{
 				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000001"): {
@@ -366,12 +515,12 @@ func TestEncoder_Encode(t *testing.T) {
 						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000006"),
 						Type:       core.RelationshipContains,
 					},
-				},
-				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000002"): {
 					{
-						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000003"),
+						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000007"),
 						Type:       core.RelationshipContains,
 					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000002"): {
 					{
 						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000004"),
 						Type:       core.RelationshipContains,
@@ -386,6 +535,24 @@ func TestEncoder_Encode(t *testing.T) {
 				},
 				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000005"): nil,
 				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000006"): nil,
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000007"): {
+					{
+						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000008"),
+						Type:       core.RelationshipContains,
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000008"): {
+					{
+						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000010"),
+						Type:       core.RelationshipDependsOn,
+					},
+					{
+						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000009"),
+						Type:       core.RelationshipDependsOn,
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000009"): nil,
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000010"): nil,
 			},
 			wantVulns: map[uuid.UUID][]core.Vulnerability{
 				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000004"): {
@@ -668,6 +835,163 @@ func TestEncoder_Encode(t *testing.T) {
 				},
 				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000005"): nil,
 				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000006"): nil,
+			},
+			wantVulns: make(map[uuid.UUID][]core.Vulnerability),
+		},
+		{
+			name: "direct package is also dependency",
+			report: types.Report{
+				SchemaVersion: 2,
+				ArtifactName:  "test",
+				ArtifactType:  artifact.TypeFilesystem,
+				Results: []types.Result{
+					{
+						Target: "poetry.lock",
+						Type:   ftypes.Poetry,
+						Class:  types.ClassLangPkg,
+						Packages: []ftypes.Package{
+							{
+								ID:      "django@5.1.6",
+								Name:    "django",
+								Version: "5.1.6",
+								Identifier: ftypes.PkgIdentifier{
+									UID: "69691e87e187021d",
+									PURL: &packageurl.PackageURL{
+										Type:    packageurl.TypePyPi,
+										Name:    "django",
+										Version: "5.1.6",
+									},
+								},
+								Relationship: ftypes.RelationshipDirect,
+							},
+							{
+								ID:      "sentry-sdk@2.22.0",
+								Name:    "sentry-sdk",
+								Version: "2.22.0",
+								Identifier: ftypes.PkgIdentifier{
+									UID: "7e53a15e8bec68ad",
+									PURL: &packageurl.PackageURL{
+										Type:    packageurl.TypePyPi,
+										Name:    "sentry-sdk",
+										Version: "2.22.0",
+									},
+								},
+								Relationship: ftypes.RelationshipDirect,
+								DependsOn: []string{
+									"django@5.1.6",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantComponents: map[uuid.UUID]*core.Component{
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000001"): {
+					Type: core.TypeFilesystem,
+					Name: "test",
+					Root: true,
+					Properties: []core.Property{
+						{
+							Name:  core.PropertySchemaVersion,
+							Value: "2",
+						},
+					},
+					PkgIdentifier: ftypes.PkgIdentifier{
+						BOMRef: "3ff14136-e09f-4df9-80ea-000000000001",
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000002"): {
+					Type: core.TypeApplication,
+					Name: "poetry.lock",
+					Properties: []core.Property{
+						{
+							Name:  core.PropertyClass,
+							Value: "lang-pkgs",
+						},
+						{
+							Name:  core.PropertyType,
+							Value: "poetry",
+						},
+					},
+					PkgIdentifier: ftypes.PkgIdentifier{
+						BOMRef: "3ff14136-e09f-4df9-80ea-000000000002",
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000003"): {
+					Type:    core.TypeLibrary,
+					Name:    "django",
+					Version: "5.1.6",
+					SrcFile: "poetry.lock",
+					Properties: []core.Property{
+						{
+							Name:  core.PropertyPkgID,
+							Value: "django@5.1.6",
+						},
+						{
+							Name:  core.PropertyPkgType,
+							Value: "poetry",
+						},
+					},
+					PkgIdentifier: ftypes.PkgIdentifier{
+						UID: "69691e87e187021d",
+						PURL: &packageurl.PackageURL{
+							Type:    packageurl.TypePyPi,
+							Name:    "django",
+							Version: "5.1.6",
+						},
+						BOMRef: "pkg:pypi/django@5.1.6",
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000004"): {
+					Type:    core.TypeLibrary,
+					Name:    "sentry-sdk",
+					Version: "2.22.0",
+					SrcFile: "poetry.lock",
+					Properties: []core.Property{
+						{
+							Name:  core.PropertyPkgID,
+							Value: "sentry-sdk@2.22.0",
+						},
+						{
+							Name:  core.PropertyPkgType,
+							Value: "poetry",
+						},
+					},
+					PkgIdentifier: ftypes.PkgIdentifier{
+						UID: "7e53a15e8bec68ad",
+						PURL: &packageurl.PackageURL{
+							Type:    packageurl.TypePyPi,
+							Name:    "sentry-sdk",
+							Version: "2.22.0",
+						},
+						BOMRef: "pkg:pypi/sentry-sdk@2.22.0",
+					},
+				},
+			},
+			wantRels: map[uuid.UUID][]core.Relationship{
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000001"): {
+					{
+						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000002"),
+						Type:       core.RelationshipContains,
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000002"): {
+					{
+						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000003"),
+						Type:       core.RelationshipContains,
+					},
+					{
+						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000004"),
+						Type:       core.RelationshipContains,
+					},
+				},
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000003"): nil,
+				uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000004"): {
+					{
+						Dependency: uuid.MustParse("3ff14136-e09f-4df9-80ea-000000000003"),
+						Type:       core.RelationshipDependsOn,
+					},
+				},
 			},
 			wantVulns: make(map[uuid.UUID][]core.Vulnerability),
 		},

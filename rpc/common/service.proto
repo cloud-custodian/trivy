@@ -156,12 +156,13 @@ message Layer {
 }
 
 message CauseMetadata {
-  string resource   = 1;
-  string provider   = 2;
-  string service    = 3;
-  int32  start_line = 4;
-  int32  end_line   = 5;
-  Code   code       = 6;
+  string        resource       = 1;
+  string        provider       = 2;
+  string        service        = 3;
+  int32         start_line     = 4;
+  int32         end_line       = 5;
+  Code          code           = 6;
+  RenderedCause rendered_cause = 7;
 }
 
 enum Severity {
@@ -173,10 +174,10 @@ enum Severity {
 }
 
 message CVSS {
-  string v2_vector = 1;
-  string v3_vector = 2;
-  double v2_score  = 3;
-  double v3_score  = 4;
+  string v2_vector  = 1;
+  string v3_vector  = 2;
+  double v2_score   = 3;
+  double v3_score   = 4;
   string v40_vector = 5;
   double v40_score  = 6;
 }
@@ -201,6 +202,11 @@ message Line {
 
 message Code {
   repeated Line lines = 1;
+}
+
+message RenderedCause {
+  string raw         = 1;
+  string highlighted = 2;
 }
 
 message SecretFinding {
