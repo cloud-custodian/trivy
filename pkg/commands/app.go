@@ -476,7 +476,7 @@ func NewRepositoryCommand(globalFlags *flag.GlobalFlagGroup) *cobra.Command {
 	repoFlags.ReportFlagGroup.Compliance = nil   // disable '--compliance'
 	repoFlags.ReportFlagGroup.ExitOnEOL = nil    // disable '--exit-on-eol'
 
-	repoFlags.CacheFlagGroup.CacheBackend.Default = string(cache.TypeMemory) // Use memory cache by default
+	repoFlags.ScanFlagGroup.DistroFlag = nil // `repo` subcommand doesn't support scanning OS packages, so we can disable `--distro`
 
 	cmd := &cobra.Command{
 		Use:     "repository [flags] (REPO_PATH | REPO_URL)",
@@ -519,6 +519,13 @@ func NewConvertCommand(globalFlags *flag.GlobalFlagGroup) *cobra.Command {
 		ScanFlagGroup:   &flag.ScanFlagGroup{},
 		ReportFlagGroup: flag.NewReportFlagGroup(),
 	}
+
+	// To display the summary table, we need to enable scanners (to build columns).
+	// We can't get scanner information from the report (we don't include empty licenses and secrets in the report).
+	// So we need to ask the user to configure scanners (if needed).
+	convertFlags.ScanFlagGroup.Scanners = flag.ScannersFlag.Clone()
+	convertFlags.ScanFlagGroup.Scanners.Default = nil // disable default scanners
+	convertFlags.ScanFlagGroup.Scanners.Usage = "List of scanners included when generating the json report. Used only for rendering the summary table."
 
 	cmd := &cobra.Command{
 		Use:     "convert [flags] RESULT_JSON",
@@ -977,6 +984,7 @@ func NewKubernetesCommand(globalFlags *flag.GlobalFlagGroup) *cobra.Command {
 	}
 	reportFlagGroup.Compliance = compliance // override usage as the accepted values differ for each subcommand.
 	reportFlagGroup.ExitOnEOL = nil         // disable '--exit-on-eol'
+	reportFlagGroup.TableMode = nil         // disable '--table-mode'
 
 	formatFlag := flag.FormatFlag.Clone()
 	formatFlag.Values = xstrings.ToStringSlice([]types.Format{

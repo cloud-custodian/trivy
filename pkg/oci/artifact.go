@@ -256,12 +256,25 @@ func shouldTryOtherRepo(err error) bool {
 	for _, diagnostic := range terr.Errors {
 		// For better user experience
 		if diagnostic.Code == transport.DeniedErrorCode || diagnostic.Code == transport.UnauthorizedErrorCode {
-			// e.g. https://aquasecurity.github.io/trivy/latest/docs/references/troubleshooting/#db
+			// e.g. https://trivy.dev/latest/docs/references/troubleshooting/#db
 			log.Warnf("See %s", doc.URL("/docs/references/troubleshooting/", "db"))
 			break
 		}
 	}
 
-	// try the following artifact only if a temporary error occurs
-	return terr.Temporary()
+	// try the following artifact if a temporary error occurs
+	if terr.Temporary() {
+		return true
+	}
+
+	// `GCR` periodically returns `BLOB_UNKNOWN` error.
+	// cf. https://github.com/aquasecurity/trivy/discussions/8020
+	// In this case we need to check other repositories.
+	for _, e := range terr.Errors {
+		if e.Code == transport.BlobUnknownErrorCode {
+			return true
+		}
+	}
+
+	return false
 }

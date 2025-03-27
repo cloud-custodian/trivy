@@ -8,7 +8,6 @@ package wasm
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"unsafe"
 
 	"github.com/aquasecurity/trivy/pkg/module/api"
@@ -57,24 +56,24 @@ func RegisterModule(p api.Module) {
 	module = p
 }
 
-//export name
+//go:wasmexport name
 func _name() uint64 {
 	name := module.Name()
 	ptr, size := stringToPtr(name)
 	return (uint64(ptr) << uint64(32)) | uint64(size)
 }
 
-//export api_version
+//go:wasmexport api_version
 func _apiVersion() uint32 {
 	return api.Version
 }
 
-//export version
+//go:wasmexport version
 func _version() uint32 {
 	return uint32(module.Version())
 }
 
-//export is_analyzer
+//go:wasmexport is_analyzer
 func _isAnalyzer() uint64 {
 	if _, ok := module.(api.Analyzer); !ok {
 		return 0
@@ -82,14 +81,14 @@ func _isAnalyzer() uint64 {
 	return 1
 }
 
-//export required
+//go:wasmexport required
 func _required() uint64 {
 	files := module.(api.Analyzer).RequiredFiles()
 	ss := serialize.StringSlice(files)
 	return marshal(ss)
 }
 
-//export analyze
+//go:wasmexport analyze
 func _analyze(ptr, size uint32) uint64 {
 	filePath := ptrToString(ptr, size)
 	custom, err := module.(api.Analyzer).Analyze(filePath)
@@ -100,7 +99,7 @@ func _analyze(ptr, size uint32) uint64 {
 	return marshal(custom)
 }
 
-//export is_post_scanner
+//go:wasmexport is_post_scanner
 func _isPostScanner() uint64 {
 	if _, ok := module.(api.PostScanner); !ok {
 		return 0
@@ -108,12 +107,12 @@ func _isPostScanner() uint64 {
 	return 1
 }
 
-//export post_scan_spec
+//go:wasmexport post_scan_spec
 func _post_scan_spec() uint64 {
 	return marshal(module.(api.PostScanner).PostScanSpec())
 }
 
-//export post_scan
+//go:wasmexport post_scan
 func _post_scan(ptr, size uint32) uint64 {
 	var results serialize.Results
 	if err := unmarshal(ptr, size, &results); err != nil {
@@ -141,28 +140,17 @@ func marshal(v any) uint64 {
 }
 
 func unmarshal(ptr, size uint32, v any) error {
-	var b []byte
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	s.Len = uintptr(size)
-	s.Cap = uintptr(size)
-	s.Data = uintptr(ptr)
-
-	if err := json.Unmarshal(b, v); err != nil {
+	s := ptrToString(ptr, size)
+	if err := json.Unmarshal([]byte(s), v); err != nil {
 		return fmt.Errorf("unmarshal error: %s", err)
 	}
-
 	return nil
 }
 
 // ptrToString returns a string from WebAssembly compatible numeric types representing its pointer and length.
 func ptrToString(ptr uint32, size uint32) string {
-	// Get a slice view of the underlying bytes in the stream. We use SliceHeader, not StringHeader
-	// as it allows us to fix the capacity to what was allocated.
-	return *(*string)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(ptr),
-		Len:  uintptr(size), // Tinygo requires these as uintptrs even if they are int fields.
-		Cap:  uintptr(size), // ^^ See https://github.com/tinygo-org/tinygo/issues/1284
-	}))
+	b := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(ptr))), size)
+	return *(*string)(unsafe.Pointer(&b))
 }
 
 // stringToPtr returns a pointer and size pair for the given string in a way compatible with WebAssembly numeric types.

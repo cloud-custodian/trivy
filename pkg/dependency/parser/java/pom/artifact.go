@@ -12,6 +12,7 @@ import (
 
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/log"
+	"github.com/aquasecurity/trivy/pkg/set"
 	"github.com/aquasecurity/trivy/pkg/version/doc"
 )
 
@@ -19,7 +20,7 @@ var (
 	varRegexp        = regexp.MustCompile(`\${(\S+?)}`)
 	emptyVersionWarn = sync.OnceFunc(func() {
 		log.WithPrefix("pom").Warn("Dependency version cannot be determined. Child dependencies will not be found.",
-			// e.g. https://aquasecurity.github.io/trivy/latest/docs/coverage/language/java/#empty-dependency-version
+			// e.g. https://trivy.dev/latest/docs/coverage/language/java/#empty-dependency-version
 			log.String("details", doc.URL("/docs/coverage/language/java/", "empty-dependency-version")))
 	})
 )
@@ -30,7 +31,7 @@ type artifact struct {
 	Version    version
 	Licenses   []string
 
-	Exclusions map[string]struct{}
+	Exclusions set.Set[string]
 
 	Module       bool
 	Relationship ftypes.Relationship

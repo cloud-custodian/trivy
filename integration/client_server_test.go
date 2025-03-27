@@ -22,20 +22,22 @@ import (
 )
 
 type csArgs struct {
-	Command           string
-	RemoteAddrOption  string
-	Format            types.Format
-	TemplatePath      string
-	IgnoreUnfixed     bool
-	Severity          []string
-	IgnoreIDs         []string
-	Input             string
-	ClientToken       string
-	ClientTokenHeader string
-	PathPrefix        string
-	ListAllPackages   bool
-	Target            string
-	secretConfig      string
+	Command             string
+	RemoteAddrOption    string
+	Format              types.Format
+	TemplatePath        string
+	IgnoreUnfixed       bool
+	Severity            []string
+	IgnoreIDs           []string
+	Input               string
+	ClientToken         string
+	ClientTokenHeader   string
+	PathPrefix          string
+	ListAllPackages     bool
+	Target              string
+	secretConfig        string
+	Distro              string
+	VulnSeveritySources []string
 }
 
 func TestClientServer(t *testing.T) {
@@ -49,6 +51,18 @@ func TestClientServer(t *testing.T) {
 			name: "alpine 3.9",
 			args: csArgs{
 				Input: "testdata/fixtures/images/alpine-39.tar.gz",
+			},
+			golden: "testdata/alpine-39.json.golden",
+		},
+		{
+			name: "alpine 3.9 as alpine 3.10",
+			args: csArgs{
+				Input:  "testdata/fixtures/images/alpine-39.tar.gz",
+				Distro: "alpine/3.10",
+			},
+			override: func(t *testing.T, want, got *types.Report) {
+				want.Metadata.OS.Name = "3.10"
+				want.Results[0].Target = "testdata/fixtures/images/alpine-39.tar.gz (alpine 3.10)"
 			},
 			golden: "testdata/alpine-39.json.golden",
 		},
@@ -266,6 +280,19 @@ func TestClientServer(t *testing.T) {
 				ListAllPackages:  true,
 			},
 			golden: "testdata/npm.json.golden",
+		},
+		{
+			name: "scan package-lock.json with severity from `ubuntu` in client/server mode",
+			args: csArgs{
+				Command:          "repo",
+				RemoteAddrOption: "--server",
+				Target:           "testdata/fixtures/repo/npm/",
+				VulnSeveritySources: []string{
+					"alpine",
+					"ubuntu",
+				},
+			},
+			golden: "testdata/npm-ubuntu-severity.json.golden",
 		},
 		{
 			name: "scan sample.pem with repo command in client/server mode",
@@ -664,6 +691,12 @@ func setupClient(t *testing.T, c csArgs, addr string, cacheDir string) []string 
 		)
 	}
 
+	if len(c.VulnSeveritySources) != 0 {
+		osArgs = append(osArgs,
+			"--vuln-severity-source", strings.Join(c.VulnSeveritySources, ","),
+		)
+	}
+
 	if len(c.IgnoreIDs) != 0 {
 		trivyIgnore := filepath.Join(t.TempDir(), ".trivyignore")
 		err := os.WriteFile(trivyIgnore, []byte(strings.Join(c.IgnoreIDs, "\n")), 0444)
@@ -682,6 +715,10 @@ func setupClient(t *testing.T, c csArgs, addr string, cacheDir string) []string 
 
 	if c.Target != "" {
 		osArgs = append(osArgs, c.Target)
+	}
+
+	if c.Distro != "" {
+		osArgs = append(osArgs, "--distro", c.Distro)
 	}
 
 	return osArgs

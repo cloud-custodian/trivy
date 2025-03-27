@@ -209,7 +209,7 @@ func TestScanner_Detect(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "failed to get SUSE advisories",
+			wantErr: "failed to get SUSE advisory",
 		},
 	}
 	for _, tt := range tests {
@@ -220,8 +220,7 @@ func TestScanner_Detect(t *testing.T) {
 			s := suse.NewScanner(tt.distribution)
 			got, err := s.Detect(nil, tt.args.osVer, nil, tt.args.pkgs)
 			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)

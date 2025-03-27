@@ -107,7 +107,7 @@ func TestScanner_Detect(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "failed to unmarshal advisory JSON",
+			wantErr: "failed to get debian advisories",
 		},
 	}
 	for _, tt := range tests {
@@ -118,8 +118,7 @@ func TestScanner_Detect(t *testing.T) {
 			s := debian.NewScanner()
 			got, err := s.Detect(nil, tt.args.osVer, nil, tt.args.pkgs)
 			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 				return
 			}
 

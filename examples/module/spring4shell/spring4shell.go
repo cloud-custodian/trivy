@@ -1,10 +1,11 @@
-//go:generate tinygo build -o spring4shell.wasm -scheduler=none -target=wasi --no-debug spring4shell.go
+//go:generate tinygo build -o spring4shell.wasm -target=wasip1 --buildmode=c-shared spring4shell.go
 //go:build tinygo.wasm
 
 package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,8 +29,7 @@ var (
 	tomcatVersionRegex = regexp.MustCompile(`Apache Tomcat Version ([\d.]+)`)
 )
 
-// main is required for TinyGo to compile to Wasm.
-func main() {
+func init() {
 	wasm.RegisterModule(Spring4Shell{})
 }
 
@@ -112,7 +112,7 @@ func (Spring4Shell) parseTomcatReleaseNotes(f *os.File, filePath string) (*seria
 
 	m := tomcatVersionRegex.FindStringSubmatch(string(b))
 	if len(m) != 2 {
-		return nil, fmt.Errorf("unknown tomcat release notes format")
+		return nil, errors.New("unknown tomcat release notes format")
 	}
 
 	return &serialize.AnalysisResult{
