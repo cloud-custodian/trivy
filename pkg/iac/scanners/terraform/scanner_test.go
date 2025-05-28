@@ -1,7 +1,6 @@
 package terraform
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -29,11 +28,9 @@ func Test_OptionWithPolicyDirs(t *testing.T) {
 		rego.WithPolicyNamespaces("user"),
 	)
 	require.NoError(t, err)
-
 	require.Len(t, results.GetFailed(), 1)
 
 	failure := results.GetFailed()[0]
-
 	assert.Equal(t, "USER-TEST-0123", failure.Rule().AVDID)
 
 	actualCode, err := failure.GetCode()
@@ -146,7 +143,7 @@ cause := bucket.name
 				rego.WithPolicyNamespaces(test.includedNamespaces...),
 			)
 
-			results, err := scanner.ScanFS(context.TODO(), fs, "code")
+			results, err := scanner.ScanFS(t.Context(), fs, "code")
 			require.NoError(t, err)
 
 			var found bool
@@ -221,7 +218,7 @@ deny[res] {
 		rego.WithEmbeddedLibraries(true),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	require.Len(t, results.GetFailed(), 1)
@@ -304,7 +301,7 @@ deny[res] {
 		rego.WithEmbeddedLibraries(true),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	require.Len(t, results.GetFailed(), 1)
@@ -357,7 +354,7 @@ resource "aws_s3_bucket_public_access_block" "foo" {
 
 	scanner := New()
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	failed := results.GetFailed()
@@ -420,7 +417,7 @@ resource "aws_s3_bucket_public_access_block" "testB" {
 
 	scanner := New()
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	for _, result := range results.GetFailed() {
@@ -476,7 +473,7 @@ deny[res] {
 		rego.WithPolicyDirs("rules"),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	require.Len(t, results.GetFailed(), 1)
@@ -556,7 +553,7 @@ bucket_name = "test"
 		ScannerWithConfigsFileSystem(configsFS),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	assert.Len(t, results, 1)
@@ -590,7 +587,7 @@ bucket_name = "test"
 		ScannerWithConfigsFileSystem(fs),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	assert.Len(t, results, 1)
@@ -663,7 +660,7 @@ deny[res] {
 		ScannerWithAllDirectories(true),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	assert.Len(t, results.GetPassed(), 2)
@@ -732,7 +729,7 @@ deny[res] {
 		ScannerWithAllDirectories(true),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	assert.Len(t, results, 1)
@@ -800,7 +797,7 @@ deny[res] {
 		ScannerWithAllDirectories(true),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	require.Len(t, results, 2)
@@ -865,7 +862,7 @@ deny[res] {
 		ScannerWithAllDirectories(true),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fs, "code")
+	results, err := scanner.ScanFS(t.Context(), fs, "code")
 	require.NoError(t, err)
 
 	require.Len(t, results, 1)
@@ -905,7 +902,7 @@ resource "aws_s3_bucket" "test" {}
 			rego.WithPolicyNamespaces("user"),
 		)
 
-		results, err := scanner.ScanFS(context.TODO(), fsys, "deployments")
+		results, err := scanner.ScanFS(t.Context(), fsys, "deployments")
 		require.NoError(t, err)
 
 		assert.Empty(t, results)
@@ -919,7 +916,7 @@ resource "aws_s3_bucket" "test" {}
 			rego.WithPolicyNamespaces("user"),
 		)
 
-		results, err := scanner.ScanFS(context.TODO(), fsys, "deployments")
+		results, err := scanner.ScanFS(t.Context(), fsys, "deployments")
 		require.NoError(t, err)
 
 		assert.Empty(t, results)
@@ -933,7 +930,7 @@ resource "aws_s3_bucket" "test" {}
 			rego.WithPolicyNamespaces("user"),
 		)
 
-		results, err := scanner.ScanFS(context.TODO(), fsys, "deployments")
+		results, err := scanner.ScanFS(t.Context(), fsys, "deployments")
 		require.NoError(t, err)
 
 		assert.Len(t, results, 2)
@@ -946,7 +943,7 @@ resource "aws_s3_bucket" "test" {}
 			rego.WithPolicyNamespaces("user"),
 		)
 
-		results, err := scanner.ScanFS(context.TODO(), fsys, "deployments")
+		results, err := scanner.ScanFS(t.Context(), fsys, "deployments")
 		require.NoError(t, err)
 
 		assert.Len(t, results, 2)
@@ -990,7 +987,7 @@ deny contains res if {
 		rego.WithPolicyNamespaces("test"),
 	)
 
-	results, err := scanner.ScanFS(context.TODO(), fsys, ".")
+	results, err := scanner.ScanFS(t.Context(), fsys, ".")
 	require.NoError(t, err)
 
 	assert.Len(t, results.GetFailed(), 1)
@@ -998,7 +995,7 @@ deny contains res if {
 
 func TestRenderedCause(t *testing.T) {
 
-	check := `# METADATA
+	s3check := `# METADATA
 # title: S3 Data should be versioned
 # custom:
 #   id: AVD-AWS-0090
@@ -1016,14 +1013,45 @@ deny contains res if {
 	)
 }
 `
+	iamcheck := `# METADATA
+# title: Service accounts should not have roles assigned with excessive privileges
+# custom:
+#   id: AVD-GCP-0007
+#   avd_id: AVD-GCP-0007
+package user.google.iam.google0007
+
+import rego.v1
+
+import data.lib.google.iam
+
+deny contains res if {
+	some member in iam.all_members
+	print(member)
+	iam.is_service_account(member.member.value)
+	iam.is_role_privileged(member.role.value)
+	res := result.new("Service account is granted a privileged role.", member.role)
+}
+
+deny contains res if {
+	some binding in iam.all_bindings
+	iam.is_role_privileged(binding.role.value)
+	some member in binding.members
+	iam.is_service_account(member.value)
+	res := result.new("Service account is granted a privileged role.", member)
+}
+`
 
 	tests := []struct {
-		name     string
-		fsys     fstest.MapFS
-		expected string
+		name              string
+		inputCheck        string
+		fsys              fstest.MapFS
+		expected          string
+		expectedStartLine int
+		expectedEndLine   int
 	}{
 		{
-			name: "just misconfigured resource",
+			name:       "just misconfigured resource",
+			inputCheck: s3check,
 			fsys: fstest.MapFS{
 				"main.tf": &fstest.MapFile{Data: []byte(`
 locals {
@@ -1046,7 +1074,8 @@ resource "aws_s3_bucket" "test" {
 }`,
 		},
 		{
-			name: "misconfigured resource instance",
+			name:       "misconfigured resource instance",
+			inputCheck: s3check,
 			fsys: fstest.MapFS{
 				"main.tf": &fstest.MapFile{Data: []byte(`
 locals {
@@ -1070,7 +1099,8 @@ resource "aws_s3_bucket" "test" {
 }`,
 		},
 		{
-			name: "misconfigured resource instance in the module",
+			name:       "misconfigured resource instance in the module",
+			inputCheck: s3check,
 			fsys: fstest.MapFS{
 				"main.tf": &fstest.MapFile{Data: []byte(`
 module "bucket" {
@@ -1098,6 +1128,45 @@ resource "aws_s3_bucket" "test" {
   }
 }`,
 		},
+		{
+			name:       "misconfigured resource",
+			inputCheck: iamcheck,
+			fsys: fstest.MapFS{`main.tf`: &fstest.MapFile{Data: []byte(`
+resource "google_storage_bucket_iam_binding" "service-a" {
+  bucket = google_storage_bucket.service-a.name
+  role   = "roles/storage.objectAdmin"
+
+  members = [
+    "serviceAccount:service-a@example-project.iam.gserviceaccount.com"
+  ]
+}`),
+			}},
+			expectedStartLine: 6,
+			expectedEndLine:   8,
+		},
+		{
+			name:       "dont panic on unknown value",
+			inputCheck: iamcheck,
+			fsys: fstest.MapFS{
+				"main.tf": &fstest.MapFile{Data: []byte(`
+resource "google_storage_bucket_iam_binding" "service-a" {
+  bucket = google_storage_bucket.service-a.name
+  role   = "roles/storage.objectAdmin"
+
+  members = [
+    "serviceAccount:service-a@example-project.iam.gserviceaccount.com",
+    data.google_storage_transfer_project_service_account.production.member,
+  ]
+}
+
+data "google_storage_transfer_project_service_account" "production" {
+  project = local.project_id
+}
+`)},
+			},
+			expectedStartLine: 6,
+			expectedEndLine:   9,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1105,18 +1174,23 @@ resource "aws_s3_bucket" "test" {
 			scanner := New(
 				ScannerWithAllDirectories(true),
 				rego.WithEmbeddedLibraries(true),
-				rego.WithPolicyReader(strings.NewReader(check)),
+				rego.WithPolicyReader(strings.NewReader(tt.inputCheck)),
 				rego.WithPolicyNamespaces("user"),
 			)
 
-			results, err := scanner.ScanFS(context.TODO(), tt.fsys, ".")
+			results, err := scanner.ScanFS(t.Context(), tt.fsys, ".")
 			require.NoError(t, err)
 
 			failed := results.GetFailed()
 
 			assert.Len(t, failed, 1)
 
-			assert.Equal(t, tt.expected, failed[0].Flatten().RenderedCause.Raw)
+			if tt.expected != "" {
+				assert.Equal(t, tt.expected, failed[0].Flatten().RenderedCause.Raw)
+			} else {
+				assert.Equal(t, tt.expectedStartLine, failed[0].Flatten().Location.StartLine)
+				assert.Equal(t, tt.expectedEndLine, failed[0].Flatten().Location.EndLine)
+			}
 		})
 	}
 }

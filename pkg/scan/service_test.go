@@ -1,7 +1,6 @@
-package scanner
+package scan
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -20,9 +19,9 @@ import (
 	image2 "github.com/aquasecurity/trivy/pkg/fanal/artifact/image"
 	"github.com/aquasecurity/trivy/pkg/fanal/image"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
-	"github.com/aquasecurity/trivy/pkg/scanner/langpkg"
-	"github.com/aquasecurity/trivy/pkg/scanner/local"
-	"github.com/aquasecurity/trivy/pkg/scanner/ospkg"
+	"github.com/aquasecurity/trivy/pkg/scan/langpkg"
+	"github.com/aquasecurity/trivy/pkg/scan/local"
+	"github.com/aquasecurity/trivy/pkg/scan/ospkg"
 	tTypes "github.com/aquasecurity/trivy/pkg/types"
 	"github.com/aquasecurity/trivy/pkg/vulnerability"
 )
@@ -55,8 +54,9 @@ func TestScanner_ScanArtifact(t *testing.T) {
 				SchemaVersion: 2,
 				CreatedAt:     time.Date(2021, 8, 25, 12, 20, 30, 5, time.UTC),
 				ArtifactName:  "../fanal/test/testdata/alpine-311.tar.gz",
-				ArtifactType:  artifact.TypeContainerImage,
+				ArtifactType:  ftypes.TypeContainerImage,
 				Metadata: tTypes.Metadata{
+					Size: 5861888,
 					OS: &ftypes.OS{
 						Family:   "alpine",
 						Name:     "3.11.5",
@@ -66,6 +66,12 @@ func TestScanner_ScanArtifact(t *testing.T) {
 					ImageID: "sha256:a187dde48cd289ac374ad8539930628314bc581a481cdb41409c9289419ddb72",
 					DiffIDs: []string{
 						"sha256:beee9f30bc1f711043e78d4a2be0668955d4b761d587d6f60c2c8dc081efb203",
+					},
+					Layers: ftypes.Layers{
+						{
+							Size:   5861888,
+							DiffID: "sha256:beee9f30bc1f711043e78d4a2be0668955d4b761d587d6f60c2c8dc081efb203",
+						},
 					},
 					ImageConfig: v1.ConfigFile{
 						Architecture:  "amd64",
@@ -217,10 +223,10 @@ func TestScanner_ScanArtifact(t *testing.T) {
 
 			// Create scanner
 			applier := applier.NewApplier(c)
-			scanner := local.NewScanner(applier, ospkg.NewScanner(), langpkg.NewScanner(), vulnerability.NewClient(db.Config{}))
-			s := NewScanner(scanner, artifact)
+			scanner := local.NewService(applier, ospkg.NewScanner(), langpkg.NewScanner(), vulnerability.NewClient(db.Config{}))
+			s := NewService(scanner, artifact)
 
-			ctx := clock.With(context.Background(), time.Date(2021, 8, 25, 12, 20, 30, 5, time.UTC))
+			ctx := clock.With(t.Context(), time.Date(2021, 8, 25, 12, 20, 30, 5, time.UTC))
 			got, err := s.ScanArtifact(ctx, tt.args.options)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)

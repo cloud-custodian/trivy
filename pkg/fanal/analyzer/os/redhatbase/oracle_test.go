@@ -1,7 +1,6 @@
 package redhatbase
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -39,7 +38,7 @@ func Test_oracleOSAnalyzer_Analyze(t *testing.T) {
 			require.NoError(t, err)
 			defer f.Close()
 
-			ctx := context.Background()
+			ctx := t.Context()
 			got, err := a.Analyze(ctx, analyzer.AnalysisInput{
 				FilePath: "etc/oracle-release",
 				Content:  f,
@@ -47,9 +46,8 @@ func Test_oracleOSAnalyzer_Analyze(t *testing.T) {
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
-			} else {
-				require.NoError(t, err)
 			}
+			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}
