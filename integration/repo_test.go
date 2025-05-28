@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
+	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/types"
 )
 
@@ -287,6 +287,15 @@ func TestRepository(t *testing.T) {
 			golden: "testdata/composer.lock.json.golden",
 		},
 		{
+			name: "cargo.lock",
+			args: args{
+				scanner:     types.VulnerabilityScanner,
+				listAllPkgs: true,
+				input:       "testdata/fixtures/repo/cargo",
+			},
+			golden: "testdata/cargo.lock.json.golden",
+		},
+		{
 			name: "multiple lockfiles",
 			args: args{
 				scanner: types.VulnerabilityScanner,
@@ -431,7 +440,7 @@ func TestRepository(t *testing.T) {
 			},
 			golden: "testdata/gomod-skip.json.golden",
 			override: func(_ *testing.T, want, _ *types.Report) {
-				want.ArtifactType = artifact.TypeFilesystem
+				want.ArtifactType = ftypes.TypeFilesystem
 			},
 		},
 		{
@@ -445,7 +454,7 @@ func TestRepository(t *testing.T) {
 			},
 			golden: "testdata/dockerfile-custom-policies.json.golden",
 			override: func(_ *testing.T, want, got *types.Report) {
-				want.ArtifactType = artifact.TypeFilesystem
+				want.ArtifactType = ftypes.TypeFilesystem
 			},
 		},
 		{

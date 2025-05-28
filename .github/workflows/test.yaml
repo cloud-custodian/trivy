@@ -38,10 +38,10 @@ jobs:
 
       - name: Lint
         id: lint
-        uses: golangci/golangci-lint-action@v6.5.0
+        uses: golangci/golangci-lint-action@v7.0.0
         with:
-          version: v1.64
-          args: --verbose --out-format=line-number
+          version: v2.1
+          args: --verbose
         if: matrix.operating-system == 'ubuntu-latest'
 
       - name: Check if linter failed
@@ -51,10 +51,7 @@ jobs:
         if: ${{ failure() && steps.lint.conclusion == 'failure' }}
 
       - name: Install tools
-        uses: aquaproj/aqua-installer@v3.1.1
-        with:
-          aqua_version: v1.25.0
-          aqua_opts: ""
+        run: go install tool # GOBIN is added to the PATH by the setup-go action
 
       - name: Check if CLI references are up-to-date
         run: |
@@ -81,17 +78,15 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - name: Install tools
-        uses: aquaproj/aqua-installer@v3.1.1
-        with:
-          aqua_version: v1.25.0
+      - name: Install Go tools
+        run: go install tool # GOBIN is added to the PATH by the setup-go action
 
       - name: Generate image list digest
         id: image-digest
         run: |
           source integration/testimages.ini
           IMAGE_LIST=$(skopeo list-tags docker://$TEST_IMAGES)
-          DIGEST=$(echo "$IMAGE_LIST" | jq '.Tags += ["containerd"] | .Tags | sort' | sha256sum | cut -d' ' -f1)
+          DIGEST=$(echo "$IMAGE_LIST" | jq '.Tags += ["containerd"] | .Tags |= sort' | sha256sum | cut -d' ' -f1)
           echo "digest=$DIGEST" >> $GITHUB_OUTPUT
 
       - name: Restore test images from cache
@@ -99,8 +94,6 @@ jobs:
         with:
           path: integration/testdata/fixtures/images
           key: cache-test-images-${{ steps.image-digest.outputs.digest }}
-          restore-keys:
-            cache-test-images-
 
       - name: Run integration tests
         run: mage test:integration
@@ -118,10 +111,8 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - name: Install tools
-        uses: aquaproj/aqua-installer@v3.1.1
-        with:
-          aqua_version: v1.25.0
+      - name: Install Go tools
+        run: go install tool # GOBIN is added to the PATH by the setup-go action
 
       - name: Run k8s integration tests
         run: mage test:k8s
@@ -140,16 +131,14 @@ jobs:
           cache: false
 
       - name: Install tools
-        uses: aquaproj/aqua-installer@v3.1.1
-        with:
-          aqua_version: v1.25.0
+        run: go install tool # GOBIN is added to the PATH by the setup-go action
 
       - name: Generate image list digest
         id: image-digest
         run: |
           source integration/testimages.ini
           IMAGE_LIST=$(skopeo list-tags docker://$TEST_IMAGES)
-          DIGEST=$(echo "$IMAGE_LIST" | jq '.Tags += ["containerd"] | .Tags | sort' | sha256sum | cut -d' ' -f1)
+          DIGEST=$(echo "$IMAGE_LIST" | jq '.Tags += ["containerd"] | .Tags |= sort' | sha256sum | cut -d' ' -f1)
           echo "digest=$DIGEST" >> $GITHUB_OUTPUT
 
       - name: Restore test images from cache
@@ -157,8 +146,6 @@ jobs:
         with:
           path: integration/testdata/fixtures/images
           key: cache-test-images-${{ steps.image-digest.outputs.digest }}
-          restore-keys:
-            cache-test-images-
 
       - name: Run module integration tests
         shell: bash
@@ -178,17 +165,15 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - name: Install tools
-        uses: aquaproj/aqua-installer@v3.1.1
-        with:
-          aqua_version: v1.25.0
+      - name: Install Go tools
+        run: go install tool # GOBIN is added to the PATH by the setup-go action
 
       - name: Generate image list digest
         id: image-digest
         run: |
           source integration/testimages.ini
           IMAGE_LIST=$(skopeo list-tags docker://$TEST_VM_IMAGES)
-          DIGEST=$(echo "$IMAGE_LIST" | jq '.Tags | sort' | sha256sum | cut -d' ' -f1)
+          DIGEST=$(echo "$IMAGE_LIST" | jq '.Tags |= sort' | sha256sum | cut -d' ' -f1)
           echo "digest=$DIGEST" >> $GITHUB_OUTPUT
 
       - name: Restore test VM images from cache
@@ -196,8 +181,6 @@ jobs:
         with:
           path: integration/testdata/fixtures/vm-images
           key: cache-test-vm-images-${{ steps.image-digest.outputs.digest }}
-          restore-keys:
-            cache-test-vm-images-
 
       - name: Run vm integration tests
         run: |

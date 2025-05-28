@@ -1,7 +1,6 @@
 package db_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -144,10 +143,13 @@ func TestClient_NeedsUpdate(t *testing.T) {
 			if tt.dbFileExists {
 				err := db.Init(dbDir)
 				require.NoError(t, err)
+				t.Cleanup(func() {
+					require.NoError(t, db.Close())
+				})
 			}
 
 			// Set a fake time
-			ctx := clock.With(context.Background(), time.Date(2019, 10, 1, 0, 0, 0, 0, time.UTC))
+			ctx := clock.With(t.Context(), time.Date(2019, 10, 1, 0, 0, 0, 0, time.UTC))
 
 			client := db.NewClient(dbDir, true)
 			needsUpdate, err := client.NeedsUpdate(ctx, "test", tt.skip)
@@ -191,7 +193,7 @@ func TestClient_Download(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set a fake time
-			ctx := clock.With(context.Background(), time.Date(2019, 10, 1, 0, 0, 0, 0, time.UTC))
+			ctx := clock.With(t.Context(), time.Date(2019, 10, 1, 0, 0, 0, 0, time.UTC))
 
 			// Fake DB
 			art := dbtest.NewFakeDB(t, tt.input, dbtest.FakeDBOptions{})
@@ -200,7 +202,6 @@ func TestClient_Download(t *testing.T) {
 			client := db.NewClient(dbDir, true, db.WithOCIArtifact(art))
 			err := client.Download(ctx, dbDir, ftypes.RegistryOptions{})
 			if tt.wantErr != "" {
-				require.Error(t, err)
 				assert.ErrorContains(t, err, tt.wantErr)
 				return
 			}

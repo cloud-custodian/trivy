@@ -5,19 +5,18 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1" // nolint: goimports
 
-	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/sbom/core"
 )
 
 // Report represents a scan result
 type Report struct {
-	SchemaVersion int           `json:",omitempty"`
-	CreatedAt     time.Time     `json:",omitempty"`
-	ArtifactName  string        `json:",omitempty"`
-	ArtifactType  artifact.Type `json:",omitempty"`
-	Metadata      Metadata      `json:",omitempty"`
-	Results       Results       `json:",omitempty"`
+	SchemaVersion int                 `json:",omitempty"`
+	CreatedAt     time.Time           `json:",omitempty"`
+	ArtifactName  string              `json:",omitempty"`
+	ArtifactType  ftypes.ArtifactType `json:",omitempty"`
+	Metadata      Metadata            `json:",omitempty"`
+	Results       Results             `json:",omitempty"`
 
 	// parsed SBOM
 	BOM *core.BOM `json:"-"` // Just for internal usage, not exported in JSON
@@ -34,6 +33,7 @@ type Metadata struct {
 	RepoTags    []string      `json:",omitempty"`
 	RepoDigests []string      `json:",omitempty"`
 	ImageConfig v1.ConfigFile `json:",omitempty"`
+	Layers      ftypes.Layers `json:",omitzero"`
 }
 
 // Results to hold list of Result

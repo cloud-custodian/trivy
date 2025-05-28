@@ -1,7 +1,6 @@
 package local
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -82,7 +81,7 @@ func TestArtifact_Inspect(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "host",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -99,6 +98,7 @@ func TestArtifact_Inspect(t *testing.T) {
 					analyzer.TypeAlpine,
 					analyzer.TypeApk,
 					analyzer.TypePip,
+					analyzer.TypeNpmPkgLock,
 				},
 			},
 			wantBlobs: []cachetest.WantBlob{
@@ -111,7 +111,7 @@ func TestArtifact_Inspect(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "host",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -123,7 +123,7 @@ func TestArtifact_Inspect(t *testing.T) {
 			fields: fields{
 				dir: "./testdata/alpine",
 			},
-			setupCache: func(t *testing.T) cache.Cache {
+			setupCache: func(_ *testing.T) cache.Cache {
 				return cachetest.NewErrorCache(cachetest.ErrorCacheOptions{
 					PutBlob: true,
 				})
@@ -170,7 +170,7 @@ func TestArtifact_Inspect(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/requirements.txt",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -210,7 +210,7 @@ func TestArtifact_Inspect(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/requirements.txt",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -228,7 +228,7 @@ func TestArtifact_Inspect(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), tt.artifactOpt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
@@ -298,7 +298,7 @@ func TestTerraformMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraform/single-failure",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -373,7 +373,7 @@ func TestTerraformMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraform/multiple-failures",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -395,7 +395,7 @@ func TestTerraformMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraform/no-results",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -434,7 +434,7 @@ func TestTerraformMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraform/passed",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -490,7 +490,7 @@ func TestTerraformMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraform/busted-relative-paths/child/main.tf",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -534,7 +534,7 @@ func TestTerraformMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraform/tfvar-outside/tf",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -615,7 +615,7 @@ func TestTerraformMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraform/relative-paths/child",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -638,7 +638,7 @@ func TestTerraformMisconfigurationScan(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), tt.artifactOpt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			cachetest.AssertBlobs(t, c, tt.wantBlobs)
@@ -704,7 +704,6 @@ func TestTerraformPlanSnapshotMisconfScan(t *testing.T) {
 		{
 			name: "single failure",
 			fields: fields{
-
 				dir: "./testdata/misconfig/terraformplan/snapshots/single-failure",
 			},
 			wantBlobs: []cachetest.WantBlob{
@@ -738,7 +737,7 @@ func TestTerraformPlanSnapshotMisconfScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraformplan/snapshots/single-failure",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -813,7 +812,7 @@ func TestTerraformPlanSnapshotMisconfScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraformplan/snapshots/multiple-failures",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -852,7 +851,7 @@ func TestTerraformPlanSnapshotMisconfScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/terraformplan/snapshots/passed",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -892,7 +891,7 @@ func TestTerraformPlanSnapshotMisconfScan(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), opt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			cachetest.AssertBlobs(t, c, tt.wantBlobs)
@@ -963,7 +962,7 @@ func TestCloudFormationMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/cloudformation/single-failure/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1044,7 +1043,7 @@ func TestCloudFormationMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/cloudformation/multiple-failures/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1073,7 +1072,7 @@ func TestCloudFormationMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/cloudformation/no-results/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1128,7 +1127,7 @@ func TestCloudFormationMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/cloudformation/params/code/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1183,7 +1182,7 @@ func TestCloudFormationMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/cloudformation/passed/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1204,7 +1203,7 @@ func TestCloudFormationMisconfigurationScan(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), tt.artifactOpt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			cachetest.AssertBlobs(t, c, tt.wantBlobs)
@@ -1271,7 +1270,7 @@ func TestDockerfileMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/dockerfile/single-failure/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1326,7 +1325,7 @@ func TestDockerfileMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/dockerfile/multiple-failures/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1354,7 +1353,7 @@ func TestDockerfileMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/dockerfile/no-results/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1411,7 +1410,7 @@ func TestDockerfileMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/dockerfile/passed/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1432,7 +1431,7 @@ func TestDockerfileMisconfigurationScan(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), tt.artifactOpt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			cachetest.AssertBlobs(t, c, tt.wantBlobs)
@@ -1504,7 +1503,7 @@ func TestKubernetesMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/kubernetes/single-failure/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1587,7 +1586,7 @@ func TestKubernetesMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/kubernetes/multiple-failures/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1615,7 +1614,7 @@ func TestKubernetesMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/kubernetes/no-results/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1672,7 +1671,7 @@ func TestKubernetesMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/kubernetes/passed/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1693,7 +1692,7 @@ func TestKubernetesMisconfigurationScan(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), tt.artifactOpt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			cachetest.AssertBlobs(t, c, tt.wantBlobs)
@@ -1763,7 +1762,7 @@ func TestAzureARMMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/azurearm/single-failure/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1843,7 +1842,7 @@ func TestAzureARMMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/azurearm/multiple-failures/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1871,7 +1870,7 @@ func TestAzureARMMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/azurearm/no-results/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1925,7 +1924,7 @@ func TestAzureARMMisconfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/azurearm/passed/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 				ID:   "sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
 				BlobIDs: []string{
 					"sha256:6f4672e139d4066fd00391df614cdf42bda5f7a3f005d39e1d8600be86157098",
@@ -1946,7 +1945,7 @@ func TestAzureARMMisconfigurationScan(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), tt.artifactOpt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			cachetest.AssertBlobs(t, c, tt.wantBlobs)
@@ -2045,7 +2044,7 @@ func TestMixedConfigurationScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/mixed/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 			},
 		},
 	}
@@ -2063,7 +2062,7 @@ func TestMixedConfigurationScan(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), tt.artifactOpt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			require.NoError(t, err)
 			require.NotNil(t, got)
 
@@ -2154,7 +2153,7 @@ func TestJSONConfigScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/json/passed/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 			},
 		},
 		{
@@ -2203,7 +2202,7 @@ func TestJSONConfigScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/json/with-schema/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 			},
 		},
 	}
@@ -2225,7 +2224,7 @@ func TestJSONConfigScan(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), tt.artifactOpt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			require.NoError(t, err)
 			require.NotNil(t, got)
 
@@ -2316,7 +2315,7 @@ func TestYAMLConfigScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/yaml/passed/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 			},
 		},
 		{
@@ -2365,7 +2364,7 @@ func TestYAMLConfigScan(t *testing.T) {
 			},
 			want: artifact.Reference{
 				Name: "testdata/misconfig/yaml/with-schema/src",
-				Type: artifact.TypeFilesystem,
+				Type: types.TypeFilesystem,
 			},
 		},
 	}
@@ -2387,13 +2386,148 @@ func TestYAMLConfigScan(t *testing.T) {
 			a, err := NewArtifact(tt.fields.dir, c, walker.NewFS(), tt.artifactOpt)
 			require.NoError(t, err)
 
-			got, err := a.Inspect(context.Background())
+			got, err := a.Inspect(t.Context())
 			require.NoError(t, err)
 			require.NotNil(t, got)
 
 			assert.Equal(t, tt.want.Name, got.Name)
 			assert.Equal(t, tt.want.Type, got.Type)
 			cachetest.AssertBlobs(t, c, tt.wantBlobs)
+		})
+	}
+}
+
+// recordingWalker wraps an existing walker and records which paths were walked
+type recordingWalker struct {
+	base        Walker
+	walkedRoots []string
+}
+
+func newRecordingWalker(base Walker) *recordingWalker {
+	return &recordingWalker{
+		base: base,
+	}
+}
+
+func (w *recordingWalker) Walk(root string, option walker.Option, walkFn walker.WalkFunc) error {
+	w.walkedRoots = append(w.walkedRoots, filepath.ToSlash(root))
+	// Call the original walker
+	return w.base.Walk(root, option, walkFn)
+}
+
+// TestArtifact_AnalysisStrategy tests the different analysis strategies
+func TestArtifact_AnalysisStrategy(t *testing.T) {
+	// Use testdata/alpine directly
+	testDir := "testdata/alpine"
+
+	tests := []struct {
+		name              string
+		disabledAnalyzers []analyzer.Type
+		wantRoots         []string
+	}{
+		{
+			name:              "static paths",
+			disabledAnalyzers: append(analyzer.TypeConfigFiles, analyzer.TypePip, analyzer.TypeSecret),
+			wantRoots: []string{
+				"testdata/alpine/etc/alpine-release",
+				"testdata/alpine/lib/apk/db/installed",
+			},
+		},
+		{
+			name: "traversing root dir",
+			wantRoots: []string{
+				testDir, // only the root directory is walked
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a new artifact with the recording walker
+			baseWalker := walker.NewFS()
+			rw := newRecordingWalker(baseWalker)
+
+			// Create artifact with recording walker
+			a, err := NewArtifact(testDir, cache.NewMemoryCache(), rw, artifact.Option{
+				DisabledAnalyzers: tt.disabledAnalyzers,
+			})
+			require.NoError(t, err)
+
+			// Run the inspection
+			_, err = a.Inspect(t.Context())
+			require.NoError(t, err)
+
+			// Check if the walked roots match the expected roots
+			assert.ElementsMatch(t, tt.wantRoots, rw.walkedRoots)
+		})
+	}
+}
+
+// TestAnalyzerGroup_StaticPaths tests the StaticPaths method of AnalyzerGroup
+func TestAnalyzerGroup_StaticPaths(t *testing.T) {
+	tests := []struct {
+		name              string
+		disabledAnalyzers []analyzer.Type
+		filePatterns      []string
+		want              []string
+		wantAllStatic     bool
+	}{
+		{
+			name:              "all analyzers implement StaticPathAnalyzer",
+			disabledAnalyzers: append(analyzer.TypeConfigFiles, analyzer.TypePip, analyzer.TypeSecret),
+			want: []string{
+				"lib/apk/db/installed",
+				"etc/alpine-release",
+			},
+			wantAllStatic: true,
+		},
+		{
+			name:              "all analyzers implement StaticPathAnalyzer, but there is file pattern",
+			disabledAnalyzers: append(analyzer.TypeConfigFiles, analyzer.TypePip, analyzer.TypeSecret),
+			filePatterns: []string{
+				"alpine:etc/alpine-release-custom",
+			},
+			want:          []string{},
+			wantAllStatic: false,
+		},
+		{
+			name:          "some analyzers don't implement StaticPathAnalyzer",
+			want:          []string{},
+			wantAllStatic: false,
+		},
+		{
+			name: "only PostAnalyzers are enabled",
+			disabledAnalyzers: []analyzer.Type{
+				analyzer.TypePip,
+				analyzer.TypeSecret,
+			},
+			want:          []string{},
+			wantAllStatic: false,
+		},
+		{
+			name:              "disable all analyzers",
+			disabledAnalyzers: append(analyzer.TypeConfigFiles, analyzer.TypePip, analyzer.TypeApk, analyzer.TypeAlpine, analyzer.TypeSecret),
+			want:              []string{},
+			wantAllStatic:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a new analyzer group
+			a, err := analyzer.NewAnalyzerGroup(analyzer.AnalyzerOptions{
+				FilePatterns: tt.filePatterns,
+			})
+			require.NoError(t, err)
+
+			// Get static paths
+			gotPaths, gotAllStatic := a.StaticPaths(tt.disabledAnalyzers)
+
+			// Check if all analyzers implement StaticPathAnalyzer
+			assert.Equal(t, tt.wantAllStatic, gotAllStatic)
+
+			// Check paths
+			assert.ElementsMatch(t, tt.want, gotPaths)
 		})
 	}
 }

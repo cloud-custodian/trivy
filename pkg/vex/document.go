@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/xerrors"
 
-	"github.com/aquasecurity/trivy/pkg/fanal/artifact"
+	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/sbom"
 	"github.com/aquasecurity/trivy/pkg/sbom/cyclonedx"
 	"github.com/aquasecurity/trivy/pkg/types"
@@ -30,13 +30,11 @@ func NewDocument(filePath string, report *types.Report) (VEX, error) {
 	v, errs := decodeVEX(f, filePath, report)
 	if errs != nil {
 		return nil, xerrors.Errorf("unable to load VEX from file: %w", errs)
-	} else {
-		return v, nil
 	}
+	return v, nil
 }
 
 func decodeVEX(r io.ReadSeeker, source string, report *types.Report) (VEX, error) {
-
 	var errs error
 	// Try CycloneDX JSON
 	if ok, err := sbom.IsCycloneDXJSON(r); err != nil {
@@ -70,7 +68,7 @@ func decodeCycloneDXJSON(r io.ReadSeeker, report *types.Report) (*CycloneDX, err
 	if err != nil {
 		return nil, xerrors.Errorf("json decode error: %w", err)
 	}
-	if report.ArtifactType != artifact.TypeCycloneDX {
+	if report.ArtifactType != ftypes.TypeCycloneDX {
 		return nil, xerrors.New("CycloneDX VEX can be used with CycloneDX SBOM")
 	}
 	return newCycloneDX(report.BOM, vex), nil
