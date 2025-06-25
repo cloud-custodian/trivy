@@ -35,6 +35,7 @@ trivy repository [flags] (REPO_PATH | REPO_URL)
                                             - "precise": Prioritizes precise by minimizing false positives.
                                             - "comprehensive": Aims to detect more security findings at the cost of potential false positives.
                                            (allowed values: precise,comprehensive) (default "precise")
+      --disable-telemetry                 disable sending anonymous usage data to Aqua
       --download-db-only                  download/update vulnerability database but don't run a scan
       --download-java-db-only             download/update Java index database but don't run a scan
       --enable-modules strings            [EXPERIMENTAL] module names to enable
@@ -74,7 +75,7 @@ trivy repository [flags] (REPO_PATH | REPO_URL)
       --ignored-licenses strings          specify a list of license to ignore
       --ignorefile string                 specify .trivyignore file (default ".trivyignore")
       --include-deprecated-checks         include deprecated checks
-      --include-dev-deps                  include development dependencies in the report (supported: npm, yarn)
+      --include-dev-deps                  include development dependencies in the report (supported: npm, yarn, gradle)
       --include-non-failures              include successes, available with '--scanners misconfig'
       --java-db-repository strings        OCI repository(ies) to retrieve trivy-java-db in order of priority (default [mirror.gcr.io/aquasec/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1])
       --license-confidence-level float    specify license classifier's confidence level (default 0.9)
@@ -98,6 +99,7 @@ trivy repository [flags] (REPO_PATH | REPO_URL)
                                             - indirect
                                            (default [unknown,root,workspace,direct,indirect])
       --pkg-types strings                 list of package types (allowed values: os,library) (default [os,library])
+      --raw-config-scanners strings       specify the types of scanners that will also scan raw configurations. For example, scanners will scan a non-adapted configuration into a shared state (allowed values: terraform)
       --redis-ca string                   redis ca file location, if using redis as cache backend
       --redis-cert string                 redis certificate file location, if using redis as cache backend
       --redis-key string                  redis key file location, if using redis as cache backend
@@ -123,6 +125,7 @@ trivy repository [flags] (REPO_PATH | REPO_URL)
       --skip-dirs strings                 specify the directories or glob patterns to skip
       --skip-files strings                specify the files or glob patterns to skip
       --skip-java-db-update               skip updating Java index database
+      --skip-version-check                suppress notices about version updates and Trivy announcements
       --skip-vex-repo-update              [EXPERIMENTAL] Skip VEX Repository update
       --table-mode strings                [EXPERIMENTAL] tables that will be displayed in 'table' format (allowed values: summary,detailed) (default [summary,detailed])
       --tag string                        pass the tag name to be scanned
@@ -163,6 +166,8 @@ trivy repository [flags] (REPO_PATH | REPO_URL)
                                             - chainguard
                                             - bitnami
                                             - govulndb
+                                            - echo
+                                            - minimos
                                             - auto
                                            (default [auto])
 ```

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -33,6 +34,7 @@ import (
 	tfpjsonscanner "github.com/aquasecurity/trivy/pkg/iac/scanners/terraformplan/tfjson"
 	"github.com/aquasecurity/trivy/pkg/log"
 	"github.com/aquasecurity/trivy/pkg/mapfs"
+	"github.com/aquasecurity/trivy/pkg/version/app"
 
 	_ "embed"
 )
@@ -74,6 +76,7 @@ type ScannerOption struct {
 	TerraformTFVars         []string
 	CloudFormationParamVars []string
 	TfExcludeDownloaded     bool
+	RawConfigScanners       []types.ConfigType
 	K8sVersion              string
 
 	FilePatterns      []string
@@ -244,6 +247,7 @@ func initRegoOptions(opt ScannerOption) ([]options.ScannerOption, error) {
 		rego.WithEmbeddedLibraries(!opt.DisableEmbeddedLibraries),
 		rego.WithIncludeDeprecatedChecks(opt.IncludeDeprecatedChecks),
 		rego.WithDisabledCheckIDs(disabledCheckIDs...),
+		rego.WithTrivyVersion(app.Version()),
 	}
 
 	policyFS, policyPaths, err := CreatePolicyFS(opt.PolicyPaths)
@@ -301,6 +305,10 @@ func scannerOptions(t detection.FileType, opt ScannerOption) ([]options.ScannerO
 		}
 		opts = append(opts, regoOpts...)
 	}
+
+	opts = append(opts, options.WithScanRawConfig(
+		slices.Contains(opt.RawConfigScanners, enablediacTypes[t])),
+	)
 
 	switch t {
 	case detection.FileTypeHelm:
@@ -454,11 +462,11 @@ func CreateDataFS(dataPaths []string, opts ...string) (fs.FS, []string, error) {
 	// Check if k8sVersion is provided
 	if len(opts) > 0 {
 		k8sVersion := opts[0]
-		if err := fsys.MkdirAll("system", 0700); err != nil {
+		if err := fsys.MkdirAll("system", 0o700); err != nil {
 			return nil, nil, err
 		}
 		data := []byte(fmt.Sprintf(`{"k8s": {"version": %q}}`, k8sVersion))
-		if err := fsys.WriteVirtualFile("system/k8s-version.json", data, 0600); err != nil {
+		if err := fsys.WriteVirtualFile("system/k8s-version.json", data, 0o600); err != nil {
 			return nil, nil, err
 		}
 	}
