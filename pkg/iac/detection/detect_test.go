@@ -88,6 +88,46 @@ func Test_Detection(t *testing.T) {
 			},
 		},
 		{
+			name: "tofu, no reader",
+			path: "main.tofu",
+			expected: []FileType{
+				FileTypeTerraform,
+			},
+		},
+		{
+			name: "tofu, with reader",
+			path: "main.tofu",
+			r:    strings.NewReader("some file content"),
+			expected: []FileType{
+				FileTypeTerraform,
+			},
+		},
+		{
+			name: "tofu json, no reader",
+			path: "main.tofu.json",
+			expected: []FileType{
+				FileTypeTerraform,
+				FileTypeJSON,
+			},
+		},
+		{
+			name: "tofu json, with reader",
+			path: "main.tofu.json",
+			r: strings.NewReader(`
+{
+  "variable": {
+    "example": {
+      "default": "hello"
+    }
+  }
+}
+`),
+			expected: []FileType{
+				FileTypeTerraform,
+				FileTypeJSON,
+			},
+		},
+		{
 			name: "cloudformation, no reader",
 			path: "main.yaml",
 			expected: []FileType{
@@ -475,8 +515,8 @@ func BenchmarkIsType_SmallFile(b *testing.B) {
 	require.NoError(b, err)
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = IsType(fmt.Sprintf("./testdata/%s", "small.file"), bytes.NewReader(data), FileTypeAzureARM)
 	}
 }
@@ -486,8 +526,8 @@ func BenchmarkIsType_BigFile(b *testing.B) {
 	require.NoError(b, err)
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = IsType(fmt.Sprintf("./testdata/%s", "big.file"), bytes.NewReader(data), FileTypeAzureARM)
 	}
 }

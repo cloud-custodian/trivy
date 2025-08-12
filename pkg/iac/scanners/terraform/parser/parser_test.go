@@ -1795,12 +1795,12 @@ output "value" {
 }
 
 data "b" "foo" {
-  for_each = data.d.foo 
+  for_each = data.d.foo
   value = each.value.value
 }
 
 data "c" "foo" {
-  for_each = data.b.foo 
+  for_each = data.b.foo
   value = each.value.value
 }`,
 			},
@@ -1815,12 +1815,12 @@ data "c" "foo" {
 }
 
 resource "b" "foo" {
-  for_each = d.foo 
+  for_each = d.foo
   value = each.value.value
 }
 
 resource "c" "foo" {
-  for_each = b.foo 
+  for_each = b.foo
   value = each.value.value
 }`,
 			},
@@ -1979,7 +1979,6 @@ func TestModuleParents(t *testing.T) {
 	modSet := set.New[*terraform.Module]()
 	var root *terraform.Module
 	for _, mod := range modules {
-		mod := mod
 		modChildren[mod] = make([]*terraform.Module, 0)
 		modSet.Append(mod)
 
@@ -2402,8 +2401,8 @@ untyped = "zzz"
 		OptionWithTFVarsPaths("v.tfvars"),
 	)
 
-	require.NoError(t, parser.ParseFS(context.TODO(), "."))
-	modules, _, err := parser.EvaluateAll(context.TODO())
+	require.NoError(t, parser.ParseFS(t.Context(), "."))
+	modules, err := parser.EvaluateAll(t.Context())
 	require.NoError(t, err)
 
 	resources := modules.GetResourcesByType("test")
@@ -2851,7 +2850,7 @@ func TestInstancedLogger(t *testing.T) {
 				}
 
 				module "echo" {
-					source = "./echo"				
+					source = "./echo"
 					input = "hello"
 				}
 
@@ -2861,10 +2860,10 @@ func TestInstancedLogger(t *testing.T) {
 			`,
 			"echo/main.tf": `
 				variable "input" {
-					type = string				
+					type = string
 				}
 				output "value" {
-					value = var.input 
+					value = var.input
 				}
 			`,
 		})
