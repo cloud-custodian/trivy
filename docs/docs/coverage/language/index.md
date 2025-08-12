@@ -61,11 +61,11 @@ Example: [Dockerfile](https://github.com/aquasecurity/trivy-ci-test/blob/main/Do
 [license]: ../../scanner/license.md
 
 [^1]: `*.egg-info`, `*.egg-info/PKG-INFO`, `*.egg` and `EGG-INFO/PKG-INFO`
-[^2]: `.dist-info/META-DATA`
+[^2]: `.dist-info/METADATA`
 [^3]: `*.jar`, `*.war`, `*.par` and `*.ear`
 [^4]: ✅ means "enabled" and `-` means "disabled" in the image scanning
 [^5]: ✅ means "enabled" and `-` means "disabled" in the rootfs scanning
 [^6]: ✅ means "enabled" and `-` means "disabled" in the filesystem scanning
 [^7]: ✅ means "enabled" and `-` means "disabled" in the git repository scanning
-[^8]: To scan a filename other than the default filename use [file-patterns](../../configuration/skipping.md#file-patterns)
+[^8]: To scan a filename other than the default filename use [file-patterns](../../configuration/skipping.md#customizing-file-handling)
 [^9]: `Directory.Packages.props` and  legacy `Packages.props` file names are supported

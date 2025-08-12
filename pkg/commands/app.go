@@ -112,15 +112,6 @@ func NewApp() *cobra.Command {
 		rootCmd.AddCommand(plugins...)
 	}
 
-	// TODO(simar7): Only for backwards support guidance, delete the subcommand after a while.
-	if cmd, _, _ := rootCmd.Find([]string{"aws"}); cmd == cmd.Root() { // "trivy aws" not installed
-		rootCmd.AddCommand(&cobra.Command{
-			Hidden: true,
-			Long:   "Trivy AWS is now available as an optional plugin. See github.com/aquasecurity/trivy-aws for details.",
-			Use:    "aws",
-		})
-	}
-
 	return rootCmd
 }
 
@@ -134,7 +125,6 @@ func loadPluginCommands() []*cobra.Command {
 		return nil
 	}
 	for _, p := range plugins {
-		p := p
 		cmd := &cobra.Command{
 			Use:     fmt.Sprintf("%s [flags]", p.Name),
 			Short:   p.Summary,
@@ -687,10 +677,13 @@ func NewServerCommand(globalFlags *flag.GlobalFlagGroup) *cobra.Command {
 
 func NewConfigCommand(globalFlags *flag.GlobalFlagGroup) *cobra.Command {
 	scanFlags := &flag.ScanFlagGroup{
-		// Enable only '--skip-dirs' and '--skip-files' and disable other flags
-		SkipDirs:     flag.SkipDirsFlag.Clone(),
-		SkipFiles:    flag.SkipFilesFlag.Clone(),
-		FilePatterns: flag.FilePatternsFlag.Clone(),
+		// Enable only '--skip-dirs', '--skip-files', `--skip-version-check`
+		// and `--disable-telemetry`, disable other scan flags
+		SkipDirs:         flag.SkipDirsFlag.Clone(),
+		SkipFiles:        flag.SkipFilesFlag.Clone(),
+		FilePatterns:     flag.FilePatternsFlag.Clone(),
+		SkipVersionCheck: flag.SkipVersionCheckFlag.Clone(),
+		DisableTelemetry: flag.DisableTelemetryFlag.Clone(),
 	}
 
 	reportFlagGroup := flag.NewReportFlagGroup()
@@ -999,7 +992,7 @@ func NewKubernetesCommand(globalFlags *flag.GlobalFlagGroup) *cobra.Command {
 	reportFlagGroup.TableMode = nil // disable '--table-mode's
 	compliance := flag.ComplianceFlag.Clone()
 	var compliances string
-	for _, val := range types.BuiltInK8sCompiances {
+	for _, val := range types.BuiltInK8sCompliances {
 		compliances += fmt.Sprintf("\n  - %s", val)
 	}
 	compliance.Usage = fmt.Sprintf("%s\nBuilt-in compliance's:%s", compliance.Usage, compliances)

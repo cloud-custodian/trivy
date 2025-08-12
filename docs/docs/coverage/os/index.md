@@ -11,13 +11,14 @@ Trivy supports operating systems for
 
 | OS                                    | Supported Versions                  | Package Managers |
 |---------------------------------------|-------------------------------------|------------------|
-| [Alpine Linux](alpine.md)             | 2.2 - 2.7, 3.0 - 3.21, edge         | apk              |
+| [Alpine Linux](alpine.md)             | 2.2 - 2.7, 3.0 - 3.22, edge         | apk              |
 | [Wolfi Linux](wolfi.md)               | (n/a)                               | apk              |
 | [Chainguard](chainguard.md)           | (n/a)                               | apk              |
 | [MinimOS](minimos.md)                 | (n/a)                               | apk              |
-| [Red Hat Enterprise Linux](rhel.md)   | 6, 7, 8                             | dnf/yum/rpm      |
+| [Red Hat Enterprise Linux](rhel.md)   | 6, 7, 8, 9                          | dnf/yum/rpm      |
+| [Red Hat Enterprise Linux](rhel.md)   | 10 (SBOM only)                      | dnf/yum/rpm      |
 | [CentOS](centos.md)[^1]               | 6, 7, 8                             | dnf/yum/rpm      |
-| [AlmaLinux](alma.md)                  | 8, 9                                | dnf/yum/rpm      |
+| [AlmaLinux](alma.md)                  | 8, 9, 10                            | dnf/yum/rpm      |
 | [Rocky Linux](rocky.md)               | 8, 9                                | dnf/yum/rpm      |
 | [Oracle Linux](oracle.md)             | 5, 6, 7, 8                          | dnf/yum/rpm      |
 | [Azure Linux (CBL-Mariner)](azure.md) | 1.0, 2.0, 3.0                       | tdnf/dnf/yum/rpm |

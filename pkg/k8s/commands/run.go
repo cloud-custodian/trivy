@@ -62,7 +62,7 @@ func newRunner(flagOpts flag.Options, cluster string) *runner {
 }
 
 func (r *runner) run(ctx context.Context, artifacts []*k8sArtifacts.Artifact) error {
-	runner, err := cmd.NewRunner(ctx, r.flagOpts)
+	runner, err := cmd.NewRunner(ctx, r.flagOpts, cmd.TargetK8s)
 	if err != nil {
 		if errors.Is(err, cmd.SkipScan) {
 			return nil
@@ -133,16 +133,11 @@ func (r *runner) run(ctx context.Context, artifacts []*k8sArtifacts.Artifact) er
 // even though the default value of "--report" is "all".
 //
 // e.g.
-// $ trivy k8s --report all cluster
-// $ trivy k8s --report all all
+// $ trivy k8s --report all
 //
 // Or they can use "--format json" with implicit "--report all".
 //
-// e.g. $ trivy k8s --format json cluster // All the results are shown in JSON
-//
-// Single resource scanning is allowed with implicit "--report all".
-//
-// e.g. $ trivy k8s pod myapp
+// e.g. $ trivy k8s --format json // All the results are shown in JSON
 func validateReportArguments(opts flag.Options) error {
 	if opts.ReportFormat == "all" &&
 		!viper.IsSet("report") &&
