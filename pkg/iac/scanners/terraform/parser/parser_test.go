@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"context"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -2402,7 +2403,7 @@ untyped = "zzz"
 	)
 
 	require.NoError(t, parser.ParseFS(context.TODO(), "."))
-	modules, _, err := parser.EvaluateAll(context.TODO())
+	modules, err := parser.EvaluateAll(context.TODO())
 	require.NoError(t, err)
 
 	resources := modules.GetResourcesByType("test")
