@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"io/fs"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/google/wire"
 	"github.com/samber/lo"
 	"golang.org/x/xerrors"
 
@@ -33,15 +33,7 @@ import (
 
 const artifactVersion = 0
 
-var (
-	ArtifactSet = wire.NewSet(
-		walker.NewFS,
-		wire.Bind(new(Walker), new(*walker.FS)),
-		NewArtifact,
-	)
-
-	_ Walker = (*walker.FS)(nil)
-)
+var _ Walker = (*walker.FS)(nil)
 
 type Walker interface {
 	Walk(root string, opt walker.Option, fn walker.WalkFunc) error
@@ -154,7 +146,7 @@ func extractGitInfo(dir string) (bool, artifact.RepoMetadata, error) {
 		remoteConfig, err = repo.Remote("origin")
 	}
 	if err == nil && len(remoteConfig.Config().URLs) > 0 {
-		metadata.RepoURL = remoteConfig.Config().URLs[0]
+		metadata.RepoURL = sanitizeRemoteURL(remoteConfig.Config().URLs[0])
 	}
 
 	// Check if repository is clean for caching purposes
@@ -190,10 +182,11 @@ func (a Artifact) Inspect(ctx context.Context) (artifact.Reference, error) {
 			// Cache hit
 			a.logger.DebugContext(ctx, "Cache hit", log.String("key", cacheKey))
 			return artifact.Reference{
-				Name:    cmp.Or(a.artifactOption.Original, a.rootPath),
-				Type:    a.artifactOption.Type,
-				ID:      cacheKey,
-				BlobIDs: []string{cacheKey},
+				Name:         cmp.Or(a.artifactOption.Original, a.rootPath),
+				Type:         a.artifactOption.Type,
+				ID:           cacheKey,
+				BlobIDs:      []string{cacheKey},
+				RepoMetadata: a.repoMetadata,
 			}, nil
 		}
 	}
@@ -359,4 +352,21 @@ func (a Artifact) calcCacheKey() (string, error) {
 	// Format as sha256 digest
 	d := digest.NewDigest(digest.SHA256, h)
 	return d.String(), nil
+}
+
+// sanitizeRemoteURL removes credentials (userinfo) from URLs.
+func sanitizeRemoteURL(gitUrl string) string {
+	// Only attempt sanitization for URLs with an explicit scheme.
+	if !strings.Contains(gitUrl, "://") {
+		return gitUrl
+	}
+
+	// Try URL parsing first.
+	if u, err := url.Parse(gitUrl); err == nil {
+		// Clear userinfo (username:password)
+		u.User = nil
+		gitUrl = u.String()
+	}
+
+	return gitUrl
 }
