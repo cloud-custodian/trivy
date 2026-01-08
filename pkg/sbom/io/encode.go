@@ -167,6 +167,13 @@ func (e *Encoder) rootComponent(r types.Report) (*core.Component, error) {
 		})
 	}
 
+	if !r.Metadata.Reference.IsZero() {
+		props = append(props, core.Property{
+			Name:  core.PropertyReference,
+			Value: r.Metadata.Reference.String(),
+		})
+	}
+
 	root.Properties = filterProperties(props)
 
 	return root, nil
@@ -421,6 +428,29 @@ func (*Encoder) component(result types.Result, pkg ftypes.Package) *core.Compone
 			Name:  core.PropertyLayerDiffID,
 			Value: pkg.Layer.DiffID,
 		},
+	}
+
+	// Fill Red Hat specific properties
+	if pkg.BuildInfo != nil {
+		for _, cs := range pkg.BuildInfo.ContentSets {
+			properties = append(properties, core.Property{
+				Name:  core.PropertyContentSet,
+				Value: cs,
+			})
+		}
+
+		if pkg.BuildInfo.Nvr != "" {
+			properties = append(properties, core.Property{
+				Name:  core.PropertyNVR,
+				Value: pkg.BuildInfo.Nvr,
+			})
+		}
+		if pkg.BuildInfo.Arch != "" {
+			properties = append(properties, core.Property{
+				Name:  core.PropertyArch,
+				Value: pkg.BuildInfo.Arch,
+			})
+		}
 	}
 
 	var files []core.File
