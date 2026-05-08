@@ -42,6 +42,17 @@ moved {
 
 }
 
+action "aws_lambda_invoke" "example" {
+  config {
+    function_name = "123456789012:function:my-function:1"
+    payload = jsonencode({
+      key1 = "value1"
+      key2 = "value2"
+    })
+  }
+}
+
+
 import {
   to = cats_cat.mittens
   id = "mittens"
@@ -2395,7 +2406,7 @@ resource "test" "values" {
 untyped = "zzz"
 `,
 	}
-	fs := testutil.CreateFS(t, files)
+	fs := testutil.CreateFS(files)
 	parser := New(fs, "",
 		OptionStopOnHCLError(true),
 		OptionWithTFVarsPaths("v.tfvars"),

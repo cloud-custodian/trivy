@@ -3,7 +3,7 @@
 Trivy can be customized by tweaking a `trivy.yaml` file.
 The config path can be overridden by the `--config` flag.
 
-An example is [here][example].
+An example is [here][example] and a [JSON Schema][schema] is also available.
 
 These samples contain default values for flags.
 ## Global options
@@ -264,6 +264,7 @@ license:
    - Artistic-1.0
    - Artistic-2.0
    - BSL-1.0
+   - BSD-1-Clause
    - BSD-2-Clause-FreeBSD
    - BSD-2-Clause-NetBSD
    - BSD-2-Clause
@@ -379,9 +380,19 @@ license:
 ## Misconfiguration options
 
 ```yaml
+ansible:
+  # Same as '--ansible-extra-vars'
+  extra-vars: []
+
+  # Same as '--ansible-inventory'
+  inventories: []
+
+  # Same as '--ansible-playbook'
+  playbooks: []
+
 misconfiguration:
   # Same as '--checks-bundle-repository'
-  checks-bundle-repository: "mirror.gcr.io/aquasec/trivy-checks:1"
+  checks-bundle-repository: "mirror.gcr.io/aquasec/trivy-checks:2"
 
   cloudformation:
     # Same as '--cf-params'
@@ -428,6 +439,7 @@ misconfiguration:
    - terraform
    - terraformplan-json
    - terraformplan-snapshot
+   - ansible
 
   terraform:
     # Same as '--tf-exclude-downloaded-modules'
@@ -657,4 +669,5 @@ vulnerability:
   vex: []
 
 ```
-[example]: https://github.com/aquasecurity/trivy/tree/{{ git.tag }}/examples/trivy-conf/trivy.yaml
+[example]: https://github.com/aquasecurity/trivy/blob/{{ git.tag }}/examples/trivy-conf/trivy.yaml
+[schema]: https://github.com/aquasecurity/trivy/blob/{{ git.tag }}/schema/trivy-config.json

@@ -20,10 +20,13 @@ trivy vm [flags] VM_IMAGE
 ### Options
 
 ```
+      --ansible-extra-vars strings        set additional variables as key=value or @file (YAML/JSON)
+      --ansible-inventory strings         specify inventory host path or comma separated host list
+      --ansible-playbook strings          specify playbook file path(s) to scan
       --aws-region string                 AWS region to scan
       --cache-backend string              [EXPERIMENTAL] cache backend (e.g. redis://localhost:6379) (default "fs")
       --cache-ttl duration                cache TTL when using redis as cache backend
-      --checks-bundle-repository string   OCI registry URL to retrieve checks bundle from (default "mirror.gcr.io/aquasec/trivy-checks:1")
+      --checks-bundle-repository string   OCI registry URL to retrieve checks bundle from (default "mirror.gcr.io/aquasec/trivy-checks:2")
       --compliance string                 compliance report to generate
       --config-file-schemas strings       specify paths to JSON configuration file schemas to determine that a file matches some configuration and pass the schema to Rego checks for type checking
       --custom-headers strings            custom headers in client mode
@@ -76,7 +79,7 @@ trivy vm [flags] VM_IMAGE
       --include-non-failures              include successes, available with '--scanners misconfig'
       --java-db-repository strings        OCI repository(ies) to retrieve trivy-java-db in order of priority (default [mirror.gcr.io/aquasec/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1])
       --list-all-pkgs                     output all packages in the JSON report regardless of vulnerability (default true)
-      --misconfig-scanners strings        comma-separated list of misconfig scanners to use for misconfiguration scanning (default [azure-arm,cloudformation,dockerfile,helm,kubernetes,terraform,terraformplan-json,terraformplan-snapshot])
+      --misconfig-scanners strings        comma-separated list of misconfig scanners to use for misconfiguration scanning (default [azure-arm,cloudformation,dockerfile,helm,kubernetes,terraform,terraformplan-json,terraformplan-snapshot,ansible])
       --module-dir string                 specify directory to the wasm modules that will be loaded (default "$HOME/.trivy/modules")
       --no-progress                       suppress progress bar
       --offline-scan                      do not issue API requests to identify dependencies
@@ -98,7 +101,7 @@ trivy vm [flags] VM_IMAGE
       --redis-key string                  redis key file location, if using redis as cache backend
       --redis-tls                         enable redis TLS with public certificates, if using redis as cache backend
       --rekor-url string                  [EXPERIMENTAL] address of rekor STL server (default "https://rekor.sigstore.dev")
-      --render-cause strings              specify configuration types for which the rendered causes will be shown in the table report (allowed values: terraform)
+      --render-cause strings              specify configuration types for which the rendered causes will be shown in the table report (allowed values: terraform,ansible)
       --sbom-sources strings              [EXPERIMENTAL] try to retrieve SBOM from the specified sources (allowed values: oci,rekor)
       --scanners strings                  comma-separated list of what security issues to detect (allowed values: vuln,misconfig,secret,license) (default [vuln,secret])
       --secret-config string              specify a path to config file for secret scanning (default "trivy-secret.yaml")
@@ -119,7 +122,7 @@ trivy vm [flags] VM_IMAGE
       --skip-version-check                suppress notices about version updates and Trivy announcements
       --skip-vex-repo-update              [EXPERIMENTAL] Skip VEX Repository update
       --table-mode strings                [EXPERIMENTAL] tables that will be displayed in 'table' format (allowed values: summary,detailed) (default [summary,detailed])
-  -t, --template string                   output template
+  -t, --template string                   output template (file path must have .tpl extension)
       --tf-exclude-downloaded-modules     exclude misconfigurations for downloaded terraform modules
       --token string                      for authentication in client/server mode
       --token-header string               specify a header name for token in client/server mode (default "Trivy-Token")
@@ -153,6 +156,7 @@ trivy vm [flags] VM_IMAGE
                                             - chainguard
                                             - bitnami
                                             - govulndb
+                                            - julia
                                             - echo
                                             - minimos
                                             - rootio
