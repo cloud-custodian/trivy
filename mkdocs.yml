@@ -99,15 +99,16 @@ nav:
               - Elixir: guide/coverage/language/elixir.md
               - Go: guide/coverage/language/golang.md
               - Java: guide/coverage/language/java.md
+              - Julia: guide/coverage/language/julia.md
               - Node.js: guide/coverage/language/nodejs.md
               - PHP: guide/coverage/language/php.md
               - Python: guide/coverage/language/python.md
               - Ruby: guide/coverage/language/ruby.md
               - Rust: guide/coverage/language/rust.md
               - Swift: guide/coverage/language/swift.md
-              - Julia: guide/coverage/language/julia.md
           - IaC:
               - Overview: guide/coverage/iac/index.md
+              - Ansible: guide/coverage/iac/ansible.md
               - Azure ARM Template: guide/coverage/iac/azure-arm.md
               - CloudFormation: guide/coverage/iac/cloudformation.md
               - Docker: guide/coverage/iac/docker.md
@@ -116,6 +117,7 @@ nav:
               - Terraform: guide/coverage/iac/terraform.md
           - Others:
               - Overview: guide/coverage/others/index.md
+              - ActiveState Images: guide/coverage/others/activestate.md
               - Bitnami Images: guide/coverage/others/bitnami.md
               - Conda: guide/coverage/others/conda.md
               - Root.io Images: guide/coverage/others/rootio.md
@@ -160,7 +162,7 @@ nav:
                   - Overview: guide/advanced/private-registries/index.md
                   - Docker Hub: guide/advanced/private-registries/docker-hub.md
                   - AWS ECR (Elastic Container Registry): guide/advanced/private-registries/ecr.md
-                  - GCR (Google Container Registry): guide/advanced/private-registries/gcr.md
+                  - GAR (Google Artifact Registry): guide/advanced/private-registries/gar.md
                   - ACR (Azure Container Registry): guide/advanced/private-registries/acr.md
                   - Self-Hosted: guide/advanced/private-registries/self.md
           - Usage Telemetry: guide/advanced/telemetry.md

@@ -11,8 +11,7 @@ import (
 	"testing"
 	"time"
 
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -333,7 +332,7 @@ func TestClientServer(t *testing.T) {
 			}
 
 			runTest(t, osArgs, tt.golden, types.FormatJSON, runOptions{
-				override: overrideFuncs(overrideUID, overrideFingerprint, tt.override),
+				override: overrideFuncs(overrideUID, overrideFingerprint, overrideServerInfo, tt.override),
 				fakeUUID: "3ff14136-e09f-4df9-80ea-%012d",
 			})
 		})
@@ -576,7 +575,7 @@ func TestClientServerWithCustomOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			osArgs := setupClient(t, tt.args, addr, cacheDir)
 			runTest(t, osArgs, tt.golden, types.FormatJSON, runOptions{
-				override: overrideUID,
+				override: overrideFuncs(overrideUID, overrideServerInfo),
 				wantErr:  tt.wantErr,
 				fakeUUID: "3ff14136-e09f-4df9-80ea-%012d",
 			})
@@ -613,7 +612,7 @@ func TestClientServerWithRedis(t *testing.T) {
 
 		// Run Trivy client
 		runTest(t, osArgs, golden, types.FormatJSON, runOptions{
-			override: overrideUID,
+			override: overrideFuncs(overrideUID, overrideServerInfo),
 			fakeUUID: "3ff14136-e09f-4df9-80ea-%012d",
 		})
 	})
@@ -768,7 +767,7 @@ func setupRedis(t *testing.T, ctx context.Context) (testcontainers.Container, st
 		Name:         "redis",
 		Image:        imageName,
 		ExposedPorts: []string{port},
-		HostConfigModifier: func(hostConfig *dockercontainer.HostConfig) {
+		HostConfigModifier: func(hostConfig *container.HostConfig) {
 			hostConfig.AutoRemove = true
 		},
 	}
@@ -782,7 +781,7 @@ func setupRedis(t *testing.T, ctx context.Context) (testcontainers.Container, st
 	ip, err := redis.Host(ctx)
 	require.NoError(t, err)
 
-	p, err := redis.MappedPort(ctx, nat.Port(port))
+	p, err := redis.MappedPort(ctx, port)
 	require.NoError(t, err)
 
 	addr := fmt.Sprintf("redis://%s:%s", ip, p.Port())
