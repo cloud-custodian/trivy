@@ -2406,7 +2406,7 @@ resource "test" "values" {
 untyped = "zzz"
 `,
 	}
-	fs := testutil.CreateFS(t, files)
+	fs := testutil.CreateFS(files)
 	parser := New(fs, "",
 		OptionStopOnHCLError(true),
 		OptionWithTFVarsPaths("v.tfvars"),
