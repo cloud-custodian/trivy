@@ -121,7 +121,7 @@ func (e *evaluator) exportOutputs() cty.Value {
 		if attr.IsNil() {
 			continue
 		}
-		data[block.Label()] = attr.Value()
+		data[block.Label()] = attr.MarkedValue()
 		e.logger.Debug(
 			"Added module output",
 			log.String("block", block.Label()),
@@ -532,7 +532,7 @@ func (e *evaluator) evaluateOutput(b *terraform.Block) (cty.Value, error) {
 	if attribute.IsNil() {
 		return cty.NilVal, errors.New("cannot resolve output with no attributes")
 	}
-	return attribute.Value(), nil
+	return attribute.MarkedValue(), nil
 }
 
 // returns true if all evaluations were successful
@@ -676,6 +676,9 @@ func (e *evaluator) shouldDeferForEachExpansion(forEachAttr *terraform.Attribute
 }
 
 func (e *evaluator) localHasDynamicValues(localVal cty.Value) bool {
+	// Only the structure of the value matters here, so the marks are dropped.
+	localVal, _ = localVal.UnmarkDeep()
+
 	if !localVal.Type().IsObjectType() {
 		return false
 	}
@@ -687,6 +690,10 @@ func (e *evaluator) localHasDynamicValues(localVal cty.Value) bool {
 
 	// Check if the local contains DynamicVal which indicates unresolved references
 	for _, val := range valueMap {
+		if !val.IsKnown() {
+			return true
+		}
+
 		if val.Type() == cty.DynamicPseudoType {
 			return true
 		}

@@ -157,9 +157,11 @@ trivy vm [flags] VM_IMAGE
                                             - bitnami
                                             - govulndb
                                             - julia
+                                            - bottlerocket
                                             - echo
                                             - minimos
                                             - rootio
+                                            - rapidfort
                                             - auto
                                            (default [auto])
 ```

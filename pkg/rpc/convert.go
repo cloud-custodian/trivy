@@ -77,9 +77,20 @@ func ConvertToRPCPkgs(pkgs []ftypes.Package) []*common.Package {
 			Indirect:     pkg.Indirect,
 			Maintainer:   pkg.Maintainer,
 			AnalyzedBy:   string(pkg.AnalyzedBy),
+			Repository:   ConvertToRPCPackageRepository(pkg.Repository),
 		})
 	}
 	return rpcPkgs
+}
+
+// ConvertToRPCPackageRepository converts ftypes.PackageRepository to common.PackageRepository
+func ConvertToRPCPackageRepository(repo ftypes.PackageRepository) *common.PackageRepository {
+	if repo.Class == "" {
+		return nil
+	}
+	return &common.PackageRepository{
+		Class: string(repo.Class),
+	}
 }
 
 func ConvertToRPCPkgIdentifier(pkg ftypes.PkgIdentifier) *common.PkgIdentifier {
@@ -233,9 +244,20 @@ func ConvertFromRPCPkgs(rpcPkgs []*common.Package) []ftypes.Package {
 			Indirect:     pkg.Indirect,
 			Maintainer:   pkg.Maintainer,
 			AnalyzedBy:   ftypes.AnalyzerType(pkg.AnalyzedBy),
+			Repository:   ConvertFromRPCPackageRepository(pkg.Repository),
 		})
 	}
 	return pkgs
+}
+
+// ConvertFromRPCPackageRepository converts common.PackageRepository to ftypes.PackageRepository
+func ConvertFromRPCPackageRepository(repo *common.PackageRepository) ftypes.PackageRepository {
+	if repo == nil {
+		return ftypes.PackageRepository{}
+	}
+	return ftypes.PackageRepository{
+		Class: ftypes.RepositoryClass(repo.GetClass()),
+	}
 }
 
 func ConvertFromRPCPkgIdentifier(pkg *common.PkgIdentifier) ftypes.PkgIdentifier {
@@ -391,6 +413,7 @@ func ConvertToRPCPolicyMetadata(policy ftypes.PolicyMetadata) *common.PolicyMeta
 	return &common.PolicyMetadata{
 		Id:                 policy.ID,
 		AdvId:              policy.AVDID,
+		Aliases:            policy.Aliases,
 		Type:               policy.Type,
 		Title:              policy.Title,
 		Description:        policy.Description,
@@ -490,6 +513,10 @@ func ConvertFromRPCCustomResources(rpcCustomResources []*common.CustomResource) 
 }
 
 func ConvertFromRPCCode(rpcCode *common.Code) ftypes.Code {
+	if rpcCode == nil {
+		return ftypes.Code{}
+	}
+
 	var lines []ftypes.Line
 	for _, line := range rpcCode.Lines {
 		lines = append(lines, ftypes.Line{
@@ -602,10 +629,10 @@ func ConvertFromRPCVulns(rpcVulns []*common.Vulnerability) []types.DetectedVulne
 
 		var lastModifiedDate, publishedDate *time.Time
 		if vuln.LastModifiedDate != nil {
-			lastModifiedDate = lo.ToPtr(vuln.LastModifiedDate.AsTime())
+			lastModifiedDate = new(vuln.LastModifiedDate.AsTime())
 		}
 		if vuln.PublishedDate != nil {
-			publishedDate = lo.ToPtr(vuln.PublishedDate.AsTime())
+			publishedDate = new(vuln.PublishedDate.AsTime())
 		}
 
 		// Handle custom data conversion from protobuf.Value
@@ -696,6 +723,7 @@ func ConvertFromRPCPolicyMetadata(rpcPolicy *common.PolicyMetadata) ftypes.Polic
 	return ftypes.PolicyMetadata{
 		ID:                 rpcPolicy.Id,
 		AVDID:              rpcPolicy.AdvId,
+		Aliases:            rpcPolicy.Aliases,
 		Type:               rpcPolicy.Type,
 		Title:              rpcPolicy.Title,
 		Description:        rpcPolicy.Description,
@@ -740,6 +768,7 @@ func ConvertFromRPCOS(rpcOS *common.OS) ftypes.OS {
 		Name:     rpcOS.Name,
 		Eosl:     rpcOS.Eosl,
 		Extended: rpcOS.Extended,
+		Supplier: ftypes.Supplier(rpcOS.Supplier),
 	}
 }
 
@@ -813,6 +842,7 @@ func ConvertFromRPCMisconfResults(rpcResults []*common.MisconfResult) []ftypes.M
 	for _, r := range rpcResults {
 		results = append(results, ftypes.MisconfResult{
 			Namespace:      r.Namespace,
+			Query:          r.Query,
 			Message:        r.Message,
 			PolicyMetadata: ConvertFromRPCPolicyMetadata(r.PolicyMetadata),
 			CauseMetadata:  ConvertFromRPCCauseMetadata(r.CauseMetadata),
@@ -863,6 +893,7 @@ func ConvertToRPCOS(fos ftypes.OS) *common.OS {
 		Name:     fos.Name,
 		Eosl:     fos.Eosl,
 		Extended: fos.Extended,
+		Supplier: string(fos.Supplier),
 	}
 }
 
@@ -1001,6 +1032,7 @@ func ConvertToMisconfResults(results []ftypes.MisconfResult) []*common.MisconfRe
 	for _, r := range results {
 		rpcResults = append(rpcResults, &common.MisconfResult{
 			Namespace:      r.Namespace,
+			Query:          r.Query,
 			Message:        r.Message,
 			PolicyMetadata: ConvertToRPCPolicyMetadata(r.PolicyMetadata),
 			CauseMetadata:  ConvertToRPCCauseMetadata(r.CauseMetadata),

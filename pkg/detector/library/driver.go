@@ -1,7 +1,6 @@
 package library
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/samber/lo"
@@ -114,16 +113,16 @@ func (d *Driver) Type() string {
 // It allows us to add a new data source with the ecosystem prefix (e.g. pip::new-data-source)
 // and detect vulnerabilities without specifying a specific bucket name.
 func (d *Driver) DetectVulnerabilities(pkgID, pkgName, pkgVer string) ([]types.DetectedVulnerability, error) {
-	// e.g. "pip::", "npm::"
-	prefix := fmt.Sprintf("%s::", d.ecosystem)
-	advisories, err := d.dbc.GetAdvisories(prefix, vulnerability.NormalizePkgName(d.ecosystem, pkgName))
+	normalizedName := vulnerability.NormalizePkgName(d.ecosystem, pkgName)
+
+	advisories, comparer, err := d.advisories(normalizedName, pkgVer)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get %s advisories: %w", d.ecosystem, err)
+		return nil, err
 	}
 
 	var vulns []types.DetectedVulnerability
 	for _, adv := range advisories {
-		if !d.comparer.IsVulnerable(pkgVer, adv) {
+		if !comparer.IsVulnerable(pkgVer, adv) {
 			continue
 		}
 
@@ -141,6 +140,33 @@ func (d *Driver) DetectVulnerabilities(pkgID, pkgName, pkgVer string) ([]types.D
 	}
 
 	return vulns, nil
+}
+
+// advisories resolves the advisory bucket for the package and returns the
+// matching advisories together with the version comparer to use.
+//
+// For supplier packages (e.g. Seal Security), it prefers the supplier-specific
+// bucket and comparer. When the supplier match is only a candidate (a version
+// suffix that can also appear on real packages, e.g. `-spN` on Go/npm), the
+// supplier bucket is used only if it actually contains advisories for the
+// package; otherwise it falls back to the default ecosystem bucket.
+func (d *Driver) advisories(normalizedName, pkgVer string) ([]dbTypes.Advisory, compare.Comparer, error) {
+	if v, res := lookupSupplier(d.ecosystem, normalizedName, pkgVer); res != NoMatch {
+		advisories, err := d.dbc.GetAdvisories(v.BucketPrefix(d.ecosystem), normalizedName)
+		if err != nil {
+			return nil, nil, xerrors.Errorf("failed to get %s advisories: %w", d.ecosystem, err)
+		}
+		if res == Matched || len(advisories) > 0 {
+			return advisories, v.Comparer(d.ecosystem, d.comparer), nil
+		}
+		// Candidate match without supplier advisories: fall back to the default bucket.
+	}
+
+	advisories, err := d.dbc.GetAdvisories(defaultBucketPrefix(d.ecosystem), normalizedName)
+	if err != nil {
+		return nil, nil, xerrors.Errorf("failed to get %s advisories: %w", d.ecosystem, err)
+	}
+	return advisories, d.comparer, nil
 }
 
 func createFixedVersions(advisory dbTypes.Advisory) string {
