@@ -85,10 +85,11 @@ func TestVolumeRoot(t *testing.T) {
 	// and has to be a valid base for any absolute path on the same volume.
 	// Expressing it as an invariant keeps the check meaningful on every
 	// platform; a bare volume name ("C:") satisfies neither.
-	paths := []string{
-		filepath.Join(t.TempDir(), "cfg", "files"),
-		string(filepath.Separator),
-	}
+	// Both inputs must be absolute paths, which is what the caller has already
+	// established. A bare separator does not qualify on Windows, where "\\" is
+	// rooted but drive-relative, so derive the second case from the first.
+	nested := filepath.Join(t.TempDir(), "cfg", "files")
+	paths := []string{nested, volumeRoot(nested)}
 
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {

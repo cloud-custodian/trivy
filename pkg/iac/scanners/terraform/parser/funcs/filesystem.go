@@ -408,6 +408,10 @@ func readFileBytes(target fs.FS, baseDir, path string) ([]byte, error) {
 		}
 		return nil, err
 	}
+	// The handle must be released explicitly: on Windows an open handle blocks
+	// deletion of the underlying file. Harmless for trivy's own in-memory
+	// mapfs, but openFile is given a real OS-backed FS by embedders.
+	defer f.Close()
 
 	src, err := io.ReadAll(f)
 	if err != nil {
