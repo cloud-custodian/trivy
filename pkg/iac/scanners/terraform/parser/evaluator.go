@@ -59,8 +59,15 @@ func newEvaluator(
 ) *evaluator {
 
 	// create a context to store variables and make functions available
+	//
+	// Path-based functions (file, fileexists, fileset, ...) resolve their
+	// arguments relative to the project root, matching Terraform, which
+	// resolves them relative to the working directory rather than to the
+	// module. Using modulePath here instead would double-count the module
+	// prefix for the idiomatic file("${path.module}/x"), since path.module is
+	// itself project-root relative (see below).
 	ctx := tfcontext.NewContext(&hcl.EvalContext{
-		Functions: Functions(target, modulePath),
+		Functions: Functions(target, projectRootPath),
 	}, nil)
 
 	// these variables are made available by terraform to each module
