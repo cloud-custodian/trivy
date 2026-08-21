@@ -98,3 +98,52 @@ func TestFunctions_FileExists(t *testing.T) {
 		})
 	}
 }
+
+// pathFS resolves names against a real directory and exposes that directory
+// through Path(), the escape-hatch convention MakeFileSetFunc already honours
+// for embedders that intentionally opt out of the sandbox.
+type pathFS struct{ root string }
+
+func (p pathFS) Open(name string) (fs.File, error) {
+	return os.Open(filepath.Join(p.root, filepath.FromSlash(name)))
+}
+
+func (p pathFS) Path() string { return p.root }
+
+func TestFunctions_PathEscapeHatch(t *testing.T) {
+	// An embedder supplying an FS with a Path() escape hatch has deliberately
+	// opted out of the sandbox, so Functions must leave that FS in place
+	// instead of substituting an empty in-memory one.
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "cfg", "files"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "cfg", "userdata.sh"), []byte("#!/bin/bash"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "cfg", "files", "x.py"), []byte("x"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "lambdas"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "lambdas", "main.go"), []byte("package main"), 0o600))
+
+	fns := Functions(pathFS{root: root}, "cfg")
+
+	t.Run("file", func(t *testing.T) {
+		val, err := fns["file"].Call([]cty.Value{cty.StringVal("userdata.sh")})
+		require.NoError(t, err)
+		assert.Equal(t, "#!/bin/bash", val.AsString())
+	})
+
+	t.Run("fileexists", func(t *testing.T) {
+		val, err := fns["fileexists"].Call([]cty.Value{cty.StringVal("userdata.sh")})
+		require.NoError(t, err)
+		assert.Equal(t, cty.True, val)
+	})
+
+	t.Run("fileset", func(t *testing.T) {
+		val, err := fns["fileset"].Call([]cty.Value{cty.StringVal("files"), cty.StringVal("*.py")})
+		require.NoError(t, err)
+		assert.Equal(t, cty.SetVal([]cty.Value{cty.StringVal("x.py")}), val)
+	})
+
+	t.Run("fileset above the base dir", func(t *testing.T) {
+		val, err := fns["fileset"].Call([]cty.Value{cty.StringVal("../lambdas"), cty.StringVal("*.go")})
+		require.NoError(t, err)
+		assert.Equal(t, cty.SetVal([]cty.Value{cty.StringVal("main.go")}), val)
+	})
+}
