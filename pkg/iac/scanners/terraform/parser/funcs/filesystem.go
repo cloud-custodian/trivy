@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"unicode/utf8"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -262,10 +261,7 @@ func MakeFileSetFunc(target fs.FS, baseDir string) function.Function {
 
 			// If we got an absolute path, make it relative to an FS that can handle it.
 			if filepath.IsAbs(path) {
-				rootpath := "/"
-				if runtime.GOOS == "windows" {
-					rootpath = filepath.VolumeName(path)
-				}
+				rootpath := volumeRoot(path)
 				useTarget = os.DirFS(rootpath)
 				if relpath, err := filepath.Rel(rootpath, path); err == nil {
 					path = relpath
@@ -412,6 +408,10 @@ func readFileBytes(target fs.FS, baseDir, path string) ([]byte, error) {
 		}
 		return nil, err
 	}
+	// The handle must be released explicitly: on Windows an open handle blocks
+	// deletion of the underlying file. Harmless for trivy's own in-memory
+	// mapfs, but openFile is given a real OS-backed FS by embedders.
+	defer f.Close()
 
 	src, err := io.ReadAll(f)
 	if err != nil {
@@ -451,4 +451,20 @@ func expandHome(path string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, path[1:]), nil
+}
+
+// volumeRoot returns the rooted directory that path lives under, suitable for
+// both os.DirFS and as a filepath.Rel base.
+//
+// On Windows filepath.VolumeName yields a volume without a trailing separator
+// ("C:", or `\\server\share` for UNC). Those are drive-relative rather than
+// rooted, so os.DirFS resolves them against the process working directory and
+// filepath.Rel refuses them outright ("can't make C:\dir relative to C:").
+// Appending the separator turns them into the volume root. On Unix
+// VolumeName is always empty, so this is just "/".
+func volumeRoot(path string) string {
+	if vol := filepath.VolumeName(path); vol != "" {
+		return vol + string(filepath.Separator)
+	}
+	return string(filepath.Separator)
 }

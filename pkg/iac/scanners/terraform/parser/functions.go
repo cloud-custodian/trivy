@@ -18,9 +18,16 @@ import (
 func Functions(target fs.FS, baseDir string) map[string]function.Function {
 	// Use a sandboxed FS without underlyingRoot for file functions to prevent
 	// path traversal above the scan root via mapfs's underlying OS fallback.
+	//
+	// A *mapfs.FS is always sandboxed: its underlyingRoot fallback is the
+	// traversal vector being closed here. Any other FS exposing Path() is the
+	// escape hatch honored by MakeFileSetFunc — an embedder supplying one has
+	// deliberately opted out of the jail so its modules can reference paths
+	// outside the scan root, so leave it in place rather than substituting an
+	// empty in-memory FS.
 	if mfs, ok := target.(*mapfs.FS); ok {
 		target = mfs.Sandboxed()
-	} else {
+	} else if _, escapes := target.(interface{ Path() string }); !escapes {
 		target = mapfs.New()
 	}
 	return map[string]function.Function{

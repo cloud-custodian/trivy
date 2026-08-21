@@ -98,3 +98,79 @@ func TestFunctions_FileExists(t *testing.T) {
 		})
 	}
 }
+
+// pathFS resolves names against a real directory and exposes that directory
+// through Path(), the escape-hatch convention MakeFileSetFunc already honors
+// for embedders that intentionally opt out of the sandbox. Unlike mapfs it
+// hands out real OS handles, so it also counts them: a handle left open blocks
+// deletion of the file on Windows.
+type pathFS struct {
+	root   string
+	opened int
+	closed int
+}
+
+func (p *pathFS) Open(name string) (fs.File, error) {
+	f, err := os.Open(filepath.Join(p.root, filepath.FromSlash(name)))
+	if err != nil {
+		return nil, err
+	}
+	p.opened++
+	return &trackedFile{File: f, fsys: p}, nil
+}
+
+func (p *pathFS) Path() string { return p.root }
+
+type trackedFile struct {
+	fs.File
+	fsys *pathFS
+}
+
+func (f *trackedFile) Close() error {
+	f.fsys.closed++
+	return f.File.Close()
+}
+
+func TestFunctions_PathEscapeHatch(t *testing.T) {
+	// An embedder supplying an FS with a Path() escape hatch has deliberately
+	// opted out of the sandbox, so Functions must leave that FS in place
+	// instead of substituting an empty in-memory one.
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "cfg", "files"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "cfg", "userdata.sh"), []byte("#!/bin/bash"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "cfg", "files", "x.py"), []byte("x"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "lambdas"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "lambdas", "main.go"), []byte("package main"), 0o600))
+
+	fsys := &pathFS{root: root}
+	fns := Functions(fsys, "cfg")
+
+	t.Run("file", func(t *testing.T) {
+		val, err := fns["file"].Call([]cty.Value{cty.StringVal("userdata.sh")})
+		require.NoError(t, err)
+		assert.Equal(t, "#!/bin/bash", val.AsString())
+	})
+
+	t.Run("fileexists", func(t *testing.T) {
+		val, err := fns["fileexists"].Call([]cty.Value{cty.StringVal("userdata.sh")})
+		require.NoError(t, err)
+		assert.Equal(t, cty.True, val)
+	})
+
+	t.Run("fileset", func(t *testing.T) {
+		val, err := fns["fileset"].Call([]cty.Value{cty.StringVal("files"), cty.StringVal("*.py")})
+		require.NoError(t, err)
+		assert.Equal(t, cty.SetVal([]cty.Value{cty.StringVal("x.py")}), val)
+	})
+
+	t.Run("fileset above the base dir", func(t *testing.T) {
+		val, err := fns["fileset"].Call([]cty.Value{cty.StringVal("../lambdas"), cty.StringVal("*.go")})
+		require.NoError(t, err)
+		assert.Equal(t, cty.SetVal([]cty.Value{cty.StringVal("main.go")}), val)
+	})
+
+	t.Run("no leaked handles", func(t *testing.T) {
+		require.Positive(t, fsys.opened, "expected the subtests above to have opened files")
+		assert.Equal(t, fsys.opened, fsys.closed, "file functions leaked %d handle(s)", fsys.opened-fsys.closed)
+	})
+}
