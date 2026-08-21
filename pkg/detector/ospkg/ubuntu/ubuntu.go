@@ -68,6 +68,7 @@ var (
 		"24.10":     time.Date(2025, 7, 9, 23, 59, 59, 0, time.UTC),
 		"25.04":     time.Date(2026, 1, 16, 23, 59, 59, 0, time.UTC),
 		"25.10":     time.Date(2026, 7, 1, 23, 59, 59, 0, time.UTC),
+		"26.04":     time.Date(2031, 5, 31, 23, 59, 59, 0, time.UTC),
 	}
 )
 
@@ -104,9 +105,10 @@ func (s *Scanner) Detect(ctx context.Context, osVer string, _ *ftypes.Repository
 	log.InfoContext(ctx, "Detecting vulnerabilities...", log.String("os_version", osVer),
 		log.Int("pkg_num", len(pkgs)))
 
+	osVer = s.versionFromEolDates(ctx, osVer)
+
 	var vulns []types.DetectedVulnerability
 	for _, pkg := range pkgs {
-		osVer = s.versionFromEolDates(ctx, osVer)
 		advisories, err := s.vs.Get(db.GetParams{
 			Release: osVer,
 			PkgName: pkg.SrcName,

@@ -148,8 +148,14 @@ func writeBlock(tfBlock *terraform.Block, block *hclwrite.Block, causeRng types.
 			continue
 		}
 
-		value := attr.Value()
+		value := attr.MarkedValue()
 		if !value.IsWhollyKnown() {
+			continue
+		}
+
+		// The rendered cause holds resolved values, so unmarking here
+		// would expose a value hidden by sensitive().
+		if value.ContainsMarked() {
 			continue
 		}
 
@@ -237,7 +243,7 @@ func workspaceIgnorer(ws string) ignore.Ignorer {
 		if !ok {
 			return false
 		}
-		return ignore.MatchPattern(ws, ignoredWorkspace)
+		return ignore.MatchPatternCaseSensitive(ws, ignoredWorkspace)
 	}
 }
 

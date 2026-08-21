@@ -69,6 +69,14 @@ func TestClientServer(t *testing.T) {
 			override: func(_ *testing.T, want, _ *types.Report) {
 				want.Metadata.OS.Name = "3.10"
 				want.Results[0].Target = "testdata/fixtures/images/alpine-39.tar.gz (alpine 3.10)"
+				for i := range want.Results[0].Vulnerabilities {
+					qs := want.Results[0].Vulnerabilities[i].PkgIdentifier.PURL.Qualifiers
+					for j := range qs {
+						if qs[j].Key == "distro" {
+							qs[j].Value = "3.10"
+						}
+					}
+				}
 			},
 			golden: goldenAlpine39,
 		},
@@ -701,6 +709,9 @@ func setupClient(t *testing.T, c csArgs, addr, cacheDir string) []string {
 		c.RemoteAddrOption,
 		"http://" + addr,
 		"--quiet",
+		// Scan offline for stable test runs: otherwise dependency resolution may reach
+		// remote registries (e.g. Maven Central), which can return a 429
+		"--offline-scan",
 	}
 
 	if c.Format != "" {

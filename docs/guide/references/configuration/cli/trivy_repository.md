@@ -171,9 +171,11 @@ trivy repository [flags] (REPO_PATH | REPO_URL)
                                             - bitnami
                                             - govulndb
                                             - julia
+                                            - bottlerocket
                                             - echo
                                             - minimos
                                             - rootio
+                                            - rapidfort
                                             - auto
                                            (default [auto])
 ```
