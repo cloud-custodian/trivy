@@ -19,7 +19,7 @@ func Functions(target fs.FS, baseDir string) map[string]function.Function {
 	// Use a sandboxed FS without underlyingRoot for file functions to prevent
 	// path traversal above the scan root via mapfs's underlying OS fallback.
 	//
-	// An FS exposing Path() is the escape hatch honoured by MakeFileSetFunc:
+	// An FS exposing Path() is the escape hatch honored by MakeFileSetFunc:
 	// an embedder supplying one has deliberately opted out of the jail so its
 	// modules can reference paths outside the scan root, so leave it in place
 	// rather than substituting an empty in-memory FS.

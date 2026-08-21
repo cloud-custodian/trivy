@@ -100,7 +100,7 @@ func TestFunctions_FileExists(t *testing.T) {
 }
 
 // pathFS resolves names against a real directory and exposes that directory
-// through Path(), the escape-hatch convention MakeFileSetFunc already honours
+// through Path(), the escape-hatch convention MakeFileSetFunc already honors
 // for embedders that intentionally opt out of the sandbox.
 type pathFS struct{ root string }
 
