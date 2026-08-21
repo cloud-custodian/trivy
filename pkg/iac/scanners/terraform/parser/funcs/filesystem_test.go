@@ -78,3 +78,27 @@ func TestExpandHome(t *testing.T) {
 		})
 	}
 }
+
+func TestVolumeRoot(t *testing.T) {
+	// The absolute-path branch of MakeFileSetFunc uses volumeRoot both as an
+	// os.DirFS root and as a filepath.Rel base, so the result has to be rooted
+	// and has to be a valid base for any absolute path on the same volume.
+	// Expressing it as an invariant keeps the check meaningful on every
+	// platform; a bare volume name ("C:") satisfies neither.
+	paths := []string{
+		filepath.Join(t.TempDir(), "cfg", "files"),
+		string(filepath.Separator),
+	}
+
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			root := volumeRoot(path)
+
+			assert.True(t, filepath.IsAbs(root), "volumeRoot(%q) = %q is not rooted", path, root)
+
+			rel, err := filepath.Rel(root, path)
+			require.NoError(t, err, "volumeRoot(%q) = %q is not a usable Rel base", path, root)
+			assert.False(t, filepath.IsAbs(rel), "%q should be relative to %q", rel, root)
+		})
+	}
+}
