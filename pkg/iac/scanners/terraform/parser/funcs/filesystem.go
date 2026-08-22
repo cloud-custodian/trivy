@@ -288,6 +288,22 @@ func MakeFileSetFunc(target fs.FS, baseDir string) function.Function {
 				fi, err := fs.Stat(useTarget, match)
 
 				if err != nil {
+					// The glob just matched this name, so a not-exist result means
+					// it does not resolve to a file: a dangling symlink, or an
+					// entry removed between the glob and the stat. That is simply
+					// not a regular file, so skip it the same way as below.
+					//
+					// Terraform errors out here instead, but it globs a workspace
+					// the user owns and surfaces the failure to them. This is a
+					// scanner walking trees it does not control, where the error
+					// is swallowed into a null and silently drops every resource
+					// keyed off the result -- one broken link should not erase the
+					// readable files beside it.
+					//
+					// Any other stat error (permissions, I/O) is still fatal.
+					if errors.Is(err, fs.ErrNotExist) {
+						continue
+					}
 					return cty.UnknownVal(cty.Set(cty.String)), fmt.Errorf("failed to stat (%s): %s", match, err)
 				}
 

@@ -1,12 +1,15 @@
 package funcs
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func TestExpandHome(t *testing.T) {
@@ -102,4 +105,51 @@ func TestVolumeRoot(t *testing.T) {
 			assert.False(t, filepath.IsAbs(rel), "%q should be relative to %q", rel, root)
 		})
 	}
+}
+
+func TestMakeFileSetFunc_DanglingSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// Creating a symlink on Windows needs elevation or developer mode.
+		t.Skip("symlink creation is privileged on Windows")
+	}
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "real.yml"), []byte("name: real"), 0o600))
+	// A glob will match this name, but stat cannot resolve it.
+	require.NoError(t, os.Symlink(filepath.Join(dir, "nowhere", "gone.yml"), filepath.Join(dir, "broken.yml")))
+
+	fn := MakeFileSetFunc(os.DirFS(dir), ".")
+	val, err := fn.Call([]cty.Value{cty.StringVal("."), cty.StringVal("*.yml")})
+
+	// One unresolvable entry must not discard the readable ones: the result
+	// feeds for_each downstream, where an error becomes a null and silently
+	// drops every resource keyed off it.
+	require.NoError(t, err)
+	assert.Equal(t, cty.SetVal([]cty.Value{cty.StringVal("real.yml")}), val)
+}
+
+// statErrFS matches one name in a glob but fails to stat it with a non
+// not-exist error, which must stay fatal rather than being skipped.
+type statErrFS struct{ fs.FS }
+
+func (s statErrFS) Stat(name string) (fs.FileInfo, error) {
+	if filepath.Base(name) == "guarded.yml" {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: fs.ErrPermission}
+	}
+	return fs.Stat(s.FS, name)
+}
+
+func TestMakeFileSetFunc_StatErrorStaysFatal(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "real.yml"), []byte("name: real"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "guarded.yml"), []byte("name: guarded"), 0o600))
+
+	fn := MakeFileSetFunc(statErrFS{os.DirFS(dir)}, ".")
+	_, err := fn.Call([]cty.Value{cty.StringVal("."), cty.StringVal("*.yml")})
+
+	// The wrapped error is formatted with %s rather than %w upstream, so match
+	// on the message rather than the chain.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to stat (guarded.yml)")
+	assert.Contains(t, err.Error(), "permission denied")
 }
