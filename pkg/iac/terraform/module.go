@@ -16,7 +16,19 @@ type Module struct {
 }
 
 func NewModule(rootPath, modulePath string, blocks Blocks, ignores ignore.Rules) *Module {
+	m := &Module{
+		ignores:    ignores,
+		rootPath:   rootPath,
+		modulePath: modulePath,
+	}
+	m.SetBlocks(blocks)
+	return m
+}
 
+// SetBlocks replaces the module's blocks and rebuilds the type label index.
+// The evaluator uses this when a later round expands blocks that could not be
+// expanded at the point the module was constructed.
+func (c *Module) SetBlocks(blocks Blocks) {
 	blockMap := make(map[string]Blocks)
 
 	for _, b := range blocks {
@@ -25,13 +37,8 @@ func NewModule(rootPath, modulePath string, blocks Blocks, ignores ignore.Rules)
 		}
 	}
 
-	return &Module{
-		blocks:     blocks,
-		ignores:    ignores,
-		blockMap:   blockMap,
-		rootPath:   rootPath,
-		modulePath: modulePath,
-	}
+	c.blocks = blocks
+	c.blockMap = blockMap
 }
 
 func (c *Module) SetParent(parent *Module) {

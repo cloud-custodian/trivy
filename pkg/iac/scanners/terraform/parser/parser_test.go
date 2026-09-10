@@ -1240,6 +1240,109 @@ resource "aws_internet_gateway" "example" {
 	assert.Equal(t, expectedVpcIds, vpcIds)
 }
 
+func TestForEachRefToModuleOutput(t *testing.T) {
+	t.Run("collection built in the root module", func(t *testing.T) {
+		fs := testutil.CreateFS(map[string]string{
+			"main.tf": `
+module "labels" {
+  source = "./labels"
+  name   = "a"
+}
+
+locals {
+  keys = {
+    storage = {
+      label = module.labels.out
+    }
+  }
+}
+
+resource "aws_s3_bucket" "this" {
+  for_each = local.keys
+  bucket   = each.value.label
+}
+`,
+			"labels/main.tf": `
+variable "name" {
+  type = string
+}
+
+output "out" {
+  value = var.name
+}
+`,
+		})
+
+		parser := New(fs, "", OptionStopOnHCLError(true))
+		require.NoError(t, parser.ParseFS(t.Context(), "."))
+
+		modules, err := parser.EvaluateAll(t.Context())
+		require.NoError(t, err)
+
+		blocks := modules.GetResourcesByType("aws_s3_bucket")
+		require.Len(t, blocks, 1)
+		assert.Equal(t, "a", blocks[0].GetAttribute("bucket").Value().AsString())
+	})
+
+	t.Run("collection passed into a sibling module", func(t *testing.T) {
+		// The child module is evaluated before the one producing the output, so
+		// its resource is expanded against a collection that is still unresolved.
+		// The instance has to pick up each.value again on the later pass.
+		fs := testutil.CreateFS(map[string]string{
+			"main.tf": `
+variable "names" {
+  default = ["a"]
+}
+
+module "labels" {
+  for_each = toset(var.names)
+  source   = "./labels"
+  name     = each.key
+}
+
+module "child" {
+  for_each = toset(var.names)
+  source   = "./child"
+  keys = {
+    storage = {
+      label = module.labels[each.key].out
+    }
+  }
+}
+`,
+			"labels/main.tf": `
+variable "name" {
+  type = string
+}
+
+output "out" {
+  value = {
+    bucket = var.name
+  }
+}
+`,
+			"child/main.tf": `
+variable "keys" {}
+
+resource "aws_s3_bucket" "this" {
+  for_each = var.keys
+  bucket   = each.value.label.bucket
+}
+`,
+		})
+
+		parser := New(fs, "", OptionStopOnHCLError(true))
+		require.NoError(t, parser.ParseFS(t.Context(), "."))
+
+		modules, err := parser.EvaluateAll(t.Context())
+		require.NoError(t, err)
+
+		blocks := modules.GetResourcesByType("aws_s3_bucket")
+		require.Len(t, blocks, 1)
+		assert.Equal(t, "a", blocks[0].GetAttribute("bucket").Value().AsString())
+	})
+}
+
 func TestArnAttributeOfBucketIsCorrect(t *testing.T) {
 
 	t.Run("the bucket doesn't have a name", func(t *testing.T) {

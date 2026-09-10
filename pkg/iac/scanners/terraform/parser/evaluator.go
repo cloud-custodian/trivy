@@ -165,6 +165,15 @@ func (e *evaluator) EvaluateAll(ctx context.Context) (terraform.Modules, map[str
 	e.logger.Debug("Starting post-submodules evaluation...")
 	e.evaluateSteps()
 
+	// Module outputs are only available once the submodules above have been
+	// evaluated, so every expansion round so far saw a block whose for_each
+	// collection references one as not-yet-resolvable and deferred it. Expand
+	// once more now that those values are known, otherwise such a block is
+	// never expanded and each.key/each.value stay unbound in its body.
+	e.blocks = e.expandBlocks(e.blocks)
+	rootModule.SetBlocks(e.blocks)
+	e.evaluateSteps()
+
 	e.logger.Debug("Module evaluation complete.")
 	return append(terraform.Modules{rootModule}, submodules...), fsMap
 }
@@ -321,6 +330,7 @@ func (e *evaluator) expandBlockForEaches(blocks terraform.Blocks) terraform.Bloc
 		forEachAttr := block.GetAttribute("for_each")
 
 		if forEachAttr.IsNil() || block.IsExpanded() || !isBlockSupportsForEachMetaArgument(block) || e.shouldDeferForEachExpansion(forEachAttr) {
+			e.refreshForEachBinding(block, forEachAttr)
 			forEachFiltered = append(forEachFiltered, block)
 			continue
 		}
@@ -342,36 +352,9 @@ func (e *evaluator) expandBlockForEaches(blocks terraform.Blocks) terraform.Bloc
 				return
 			}
 
-			// instances are identified by a map key (or set member) from the value provided to for_each
-			idx, err := convert.Convert(key, cty.String)
-			if err != nil {
-				e.logger.Debug(
-					`Failed to expand block. Invalid "for-each" argument: map key (or set value) is not a string`,
-					log.String("block", block.FullName()),
-					log.String("key", key.GoString()),
-					log.String("value", val.GoString()),
-					log.Err(err),
-				)
+			idx, ok := e.forEachInstanceKey(block, forEachVal, key, val)
+			if !ok {
 				return
-			}
-
-			// if the argument is a collection but not a map, then the resource identifier
-			// is the value of the collection. The exception is the use of for-each inside a dynamic block,
-			// because in this case the collection element may not be a primitive value.
-			if (forEachVal.Type().IsCollectionType() || forEachVal.Type().IsTupleType()) &&
-				!forEachVal.Type().IsMapType() {
-				stringVal, err := convert.Convert(val, cty.String)
-				if err != nil {
-					e.logger.Debug(
-						"Failed to expand block. Invalid 'for-each' argument: value is not a string",
-						log.String("block", block.FullName()),
-						log.String("key", idx.AsString()),
-						log.String("value", val.GoString()),
-						log.Err(err),
-					)
-					return
-				}
-				idx = stringVal
 			}
 
 			clone := block.Clone(idx)
@@ -404,6 +387,86 @@ func (e *evaluator) expandBlockForEaches(blocks terraform.Blocks) terraform.Bloc
 	}
 
 	return forEachFiltered
+}
+
+// forEachInstanceKey returns the key that a for_each element is addressed by,
+// matching Terraform: the map key for a map, and the element itself for any
+// other collection. The exception is for-each inside a dynamic block, where the
+// element may not be a primitive value.
+func (e *evaluator) forEachInstanceKey(block *terraform.Block, forEachVal, key, val cty.Value) (cty.Value, bool) {
+	idx, err := convert.Convert(key, cty.String)
+	if err != nil {
+		e.logger.Debug(
+			`Failed to expand block. Invalid "for-each" argument: map key (or set value) is not a string`,
+			log.String("block", block.FullName()),
+			log.String("key", key.GoString()),
+			log.String("value", val.GoString()),
+			log.Err(err),
+		)
+		return cty.NilVal, false
+	}
+
+	if (forEachVal.Type().IsCollectionType() || forEachVal.Type().IsTupleType()) &&
+		!forEachVal.Type().IsMapType() {
+		stringVal, err := convert.Convert(val, cty.String)
+		if err != nil {
+			e.logger.Debug(
+				"Failed to expand block. Invalid 'for-each' argument: value is not a string",
+				log.String("block", block.FullName()),
+				log.String("key", idx.AsString()),
+				log.String("value", val.GoString()),
+				log.Err(err),
+			)
+			return cty.NilVal, false
+		}
+		idx = stringVal
+	}
+
+	return idx, true
+}
+
+// refreshForEachBinding re-binds each.key/each.value on a block that has
+// already been expanded.
+//
+// A clone captures its for_each element at the moment it is created, and is
+// skipped by every expansion round after that. When the collection only
+// resolves later -- most commonly because it comes from a module output, which
+// is unavailable until submodules have been evaluated -- the clone would
+// otherwise keep resolving each.value against the stale, unresolved element.
+func (e *evaluator) refreshForEachBinding(block *terraform.Block, forEachAttr *terraform.Attribute) {
+	if forEachAttr.IsNil() || !block.IsExpanded() || !isBlockSupportsForEachMetaArgument(block) {
+		return
+	}
+
+	blockKey := block.Reference().RawKey()
+	if blockKey.IsNull() || !blockKey.IsKnown() || !blockKey.Type().Equals(cty.String) {
+		return
+	}
+
+	forEachVal := forEachAttr.Value()
+	if forEachVal.IsNull() || !forEachVal.IsKnown() || !forEachAttr.IsIterable() {
+		return
+	}
+
+	_ = forEachAttr.Each(func(key, val cty.Value) {
+		if val.IsNull() {
+			return
+		}
+
+		idx, ok := e.forEachInstanceKey(block, forEachVal, key, val)
+		if !ok || idx.AsString() != blockKey.AsString() {
+			return
+		}
+
+		eachObj := cty.ObjectVal(map[string]cty.Value{
+			"key":   idx,
+			"value": val,
+		})
+
+		ctx := block.Context()
+		ctx.Set(eachObj, "each")
+		ctx.Set(eachObj, block.TypeLabel())
+	})
 }
 
 func isBlockSupportsCountMetaArgument(block *terraform.Block) bool {
