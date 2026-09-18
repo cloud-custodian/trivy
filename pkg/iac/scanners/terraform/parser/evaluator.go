@@ -144,8 +144,9 @@ func (e *evaluator) EvaluateAll(ctx context.Context) (terraform.Modules, map[str
 
 	// expand out resources and modules via count, for-each and dynamic
 	// (not a typo, we do this twice so every order is processed)
-	// TODO: using a module in for_each or count does not work,
-	// because the child module is evaluated later
+	// A block whose for_each or count references a module output cannot be
+	// expanded yet, because submodules have not been evaluated; the pass after
+	// evaluateSubmodules below picks those up.
 	e.blocks = e.expandBlocks(e.blocks)
 	e.blocks = e.expandBlocks(e.blocks)
 
@@ -163,6 +164,27 @@ func (e *evaluator) EvaluateAll(ctx context.Context) (terraform.Modules, map[str
 	submodules := e.evaluateSubmodules(ctx, rootModule, fsMap)
 
 	e.logger.Debug("Starting post-submodules evaluation...")
+	e.evaluateSteps()
+
+	// Module outputs are only available once the submodules above have been
+	// evaluated, so every expansion round so far saw a block whose for_each
+	// collection references one as not-yet-resolvable and deferred it. Expand
+	// once more now that those values are known, otherwise such a block is
+	// never expanded and each.key/each.value stay unbound in its body. This
+	// covers count and dynamic blocks as well, for the same reason.
+	//
+	// Expanding a module block calls Context.Replace with "module.<name>",
+	// which drops the whole "module" variable, and with it the outputs that
+	// evaluateSubmodule stored there. Every earlier round runs before those
+	// outputs exist, so only this one can lose them, and nothing restores
+	// them: getValuesByBlockType reports a module block's input arguments
+	// rather than its outputs. Carry them across the pass.
+	moduleOutputs := e.ctx.Get("module")
+	e.blocks = e.expandBlocks(e.blocks)
+	if moduleOutputs != cty.NilVal {
+		e.ctx.Set(moduleOutputs, "module")
+	}
+	rootModule.SetBlocks(e.blocks)
 	e.evaluateSteps()
 
 	e.logger.Debug("Module evaluation complete.")
@@ -321,6 +343,7 @@ func (e *evaluator) expandBlockForEaches(blocks terraform.Blocks) terraform.Bloc
 		forEachAttr := block.GetAttribute("for_each")
 
 		if forEachAttr.IsNil() || block.IsExpanded() || !isBlockSupportsForEachMetaArgument(block) || e.shouldDeferForEachExpansion(forEachAttr) {
+			e.refreshForEachBinding(block, forEachAttr)
 			forEachFiltered = append(forEachFiltered, block)
 			continue
 		}
@@ -342,36 +365,9 @@ func (e *evaluator) expandBlockForEaches(blocks terraform.Blocks) terraform.Bloc
 				return
 			}
 
-			// instances are identified by a map key (or set member) from the value provided to for_each
-			idx, err := convert.Convert(key, cty.String)
-			if err != nil {
-				e.logger.Debug(
-					`Failed to expand block. Invalid "for-each" argument: map key (or set value) is not a string`,
-					log.String("block", block.FullName()),
-					log.String("key", key.GoString()),
-					log.String("value", val.GoString()),
-					log.Err(err),
-				)
+			idx, ok := e.forEachInstanceKey(block, forEachVal, key, val)
+			if !ok {
 				return
-			}
-
-			// if the argument is a collection but not a map, then the resource identifier
-			// is the value of the collection. The exception is the use of for-each inside a dynamic block,
-			// because in this case the collection element may not be a primitive value.
-			if (forEachVal.Type().IsCollectionType() || forEachVal.Type().IsTupleType()) &&
-				!forEachVal.Type().IsMapType() {
-				stringVal, err := convert.Convert(val, cty.String)
-				if err != nil {
-					e.logger.Debug(
-						"Failed to expand block. Invalid 'for-each' argument: value is not a string",
-						log.String("block", block.FullName()),
-						log.String("key", idx.AsString()),
-						log.String("value", val.GoString()),
-						log.Err(err),
-					)
-					return
-				}
-				idx = stringVal
 			}
 
 			clone := block.Clone(idx)
@@ -404,6 +400,111 @@ func (e *evaluator) expandBlockForEaches(blocks terraform.Blocks) terraform.Bloc
 	}
 
 	return forEachFiltered
+}
+
+// forEachInstanceKey returns the key that a for_each element is addressed by,
+// matching Terraform: the map key for a map, and the element itself for any
+// other collection. The exception is for-each inside a dynamic block, where the
+// element may not be a primitive value.
+func (e *evaluator) forEachInstanceKey(block *terraform.Block, forEachVal, key, val cty.Value) (cty.Value, bool) {
+	idx, err := convert.Convert(key, cty.String)
+	if err != nil {
+		e.logger.Debug(
+			`Failed to expand block. Invalid "for-each" argument: map key (or set value) is not a string`,
+			log.String("block", block.FullName()),
+			log.String("key", key.GoString()),
+			log.String("value", val.GoString()),
+			log.Err(err),
+		)
+		return cty.NilVal, false
+	}
+
+	if (forEachVal.Type().IsCollectionType() || forEachVal.Type().IsTupleType()) &&
+		!forEachVal.Type().IsMapType() {
+		stringVal, err := convert.Convert(val, cty.String)
+		if err != nil {
+			e.logger.Debug(
+				"Failed to expand block. Invalid 'for-each' argument: value is not a string",
+				log.String("block", block.FullName()),
+				log.String("key", idx.AsString()),
+				log.String("value", val.GoString()),
+				log.Err(err),
+			)
+			return cty.NilVal, false
+		}
+		idx = stringVal
+	}
+
+	return idx, true
+}
+
+// refreshForEachBinding re-binds each.key/each.value on a block that has
+// already been expanded.
+//
+// A clone captures its for_each element at the moment it is created, and is
+// skipped by every expansion round after that. When the collection only
+// resolves later -- most commonly because it comes from a module output, which
+// is unavailable until submodules have been evaluated -- the clone would
+// otherwise keep resolving each.value against the stale, unresolved element.
+//
+// Only the binding is refreshed, never the set of instances: a clone whose key
+// is no longer in the resolved collection still stands, and a key that has
+// newly appeared gains no clone. Both were already true before the refresh
+// existed; it makes them less visible, since such an instance now reads as
+// resolved rather than as an obviously unbound one.
+//
+// Only map and object collections are refreshed. Every other collection keys
+// its instances by the element itself, so an element that was unresolved at
+// expansion time produced an unresolved key and no clone to refresh, while a
+// resolved one was never stale to begin with.
+func (e *evaluator) refreshForEachBinding(block *terraform.Block, forEachAttr *terraform.Attribute) {
+	if forEachAttr.IsNil() || !block.IsExpanded() || !isBlockSupportsForEachMetaArgument(block) {
+		return
+	}
+
+	// A binding only needs refreshing while it still holds an unresolved
+	// element; values in this evaluator go from unknown to known and then
+	// settle. Leaving early here also keeps the ordinary case, where nothing
+	// was ever unresolved, off the work below: it walks the whole collection
+	// once per instance per round.
+	if each := block.Context().Get("each"); each != cty.NilVal && each.IsWhollyKnown() {
+		return
+	}
+
+	blockKey := block.Reference().RawKey()
+	if blockKey.IsNull() || !blockKey.IsKnown() || !blockKey.Type().Equals(cty.String) {
+		return
+	}
+
+	// Resolved once and reused below. Attribute.Value re-evaluates the
+	// expression and deep-unmarks the result on every call.
+	forEachVal := forEachAttr.Value()
+	if forEachVal.IsNull() || !forEachVal.IsKnown() {
+		return
+	}
+
+	if ty := forEachVal.Type(); !ty.IsObjectType() && !ty.IsMapType() {
+		return
+	}
+
+	// Instances of a map are keyed by the map key, so go straight to it rather
+	// than walking the collection.
+	key := blockKey.AsString()
+	val, ok := forEachVal.AsValueMap()[key]
+	if !ok || val.IsNull() {
+		return
+	}
+
+	eachObj := cty.ObjectVal(map[string]cty.Value{
+		"key":   blockKey,
+		"value": val,
+	})
+
+	// Replace rather than Set: Set merges objects, which would keep keys from
+	// the stale element that the resolved one does not have.
+	ctx := block.Context()
+	ctx.Replace(eachObj, "each")
+	ctx.Replace(eachObj, block.TypeLabel())
 }
 
 func isBlockSupportsCountMetaArgument(block *terraform.Block) bool {
