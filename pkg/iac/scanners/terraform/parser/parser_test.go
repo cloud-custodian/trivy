@@ -1341,6 +1341,56 @@ resource "aws_s3_bucket" "this" {
 		require.Len(t, blocks, 1)
 		assert.Equal(t, "a", blocks[0].GetAttribute("bucket").Value().AsString())
 	})
+
+	t.Run("module outputs survive a module block expanding late", func(t *testing.T) {
+		// Expanding a module block replaces the whole "module" variable, which
+		// holds every submodule's outputs by the time this pass runs. An
+		// unrelated reference to another module's output must still resolve.
+		fs := testutil.CreateFS(map[string]string{
+			"main.tf": `
+module "labels" {
+  source = "./labels"
+  name   = "a"
+}
+
+locals {
+  keys = { storage = { label = module.labels.out } }
+}
+
+module "consumer" {
+  for_each = local.keys
+  source   = "./consumer"
+  label    = each.value.label
+}
+
+resource "aws_s3_bucket" "direct" {
+  bucket = module.labels.out
+}
+`,
+			"labels/main.tf": `
+variable "name" {
+  type = string
+}
+
+output "out" {
+  value = var.name
+}
+`,
+			"consumer/main.tf": `
+variable "label" {}
+`,
+		})
+
+		parser := New(fs, "", OptionStopOnHCLError(true))
+		require.NoError(t, parser.ParseFS(t.Context(), "."))
+
+		modules, err := parser.EvaluateAll(t.Context())
+		require.NoError(t, err)
+
+		blocks := modules.GetResourcesByType("aws_s3_bucket")
+		require.Len(t, blocks, 1)
+		assert.Equal(t, "a", blocks[0].GetAttribute("bucket").Value().AsString())
+	})
 }
 
 func TestArnAttributeOfBucketIsCorrect(t *testing.T) {
