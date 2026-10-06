@@ -39,6 +39,10 @@ type evaluator struct {
 	parentParser      *Parser
 	allowDownloads    bool
 	skipCachedModules bool
+	// finalExpansion is set for the last expansion round, after submodules are
+	// evaluated. No later pass can resolve a local any further, so deferring
+	// a for_each there would leave the block unexpanded for good.
+	finalExpansion bool
 }
 
 func newEvaluator(
@@ -180,6 +184,7 @@ func (e *evaluator) EvaluateAll(ctx context.Context) (terraform.Modules, map[str
 	// them: getValuesByBlockType reports a module block's input arguments
 	// rather than its outputs. Carry them across the pass.
 	moduleOutputs := e.ctx.Get("module")
+	e.finalExpansion = true
 	e.blocks = e.expandBlocks(e.blocks)
 	if moduleOutputs != cty.NilVal {
 		e.ctx.Set(moduleOutputs, "module")
@@ -759,6 +764,13 @@ func isForEachKey(key cty.Value) bool {
 }
 
 func (e *evaluator) shouldDeferForEachExpansion(forEachAttr *terraform.Attribute) bool {
+	// Deferral waits for a later pass to resolve the local. In the final round
+	// there is none: a local that still holds unknown values (an attribute only
+	// known after apply) has its final shape, and expandBlockForEaches expands it
+	// when its keys are known, as Terraform does.
+	if e.finalExpansion {
+		return false
+	}
 	// Check if the for_each references a local value
 	for _, ref := range forEachAttr.AllReferences() {
 		if ref.BlockType().Name() == "locals" {

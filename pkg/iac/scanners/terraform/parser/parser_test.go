@@ -1196,6 +1196,46 @@ resource "aws_s3_bucket" "this" {
 	}
 }
 
+func TestForEachOnLocalWithUnknownValuesAndKnownKeys(t *testing.T) {
+	fs := testutil.CreateFS(map[string]string{
+		"main.tf": `
+resource "google_compute_subnetwork" "s" {
+  name = "s"
+}
+
+locals {
+  nodes = {
+    a = { subnet = google_compute_subnetwork.s.self_link }
+    b = { subnet = google_compute_subnetwork.s.self_link }
+  }
+}
+
+module "vm" {
+  for_each = local.nodes
+  source   = "./modules/vm"
+  hostname = each.key
+}
+`,
+		"modules/vm/main.tf": `
+variable "hostname" {}
+`,
+	})
+
+	parser := New(fs, "", OptionStopOnHCLError(true))
+	require.NoError(t, parser.ParseFS(t.Context(), "."))
+
+	modules, err := parser.EvaluateAll(t.Context())
+	require.NoError(t, err)
+
+	// The keys are known even though every value holds an attribute that is
+	// only known after apply, so Terraform creates one instance per key.
+	var hostnames []string
+	for _, b := range modules[0].GetBlocks().OfType("module") {
+		hostnames = append(hostnames, b.GetAttribute("hostname").Value().AsString())
+	}
+	assert.ElementsMatch(t, []string{"a", "b"}, hostnames)
+}
+
 func TestForEachRefToResource(t *testing.T) {
 	fs := testutil.CreateFS(map[string]string{
 		"main.tf": `
